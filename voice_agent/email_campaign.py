@@ -260,7 +260,7 @@ class EmailCampaignManager:
                 break
 
             success = self.send_email(
-                to=campaign.body,  # Will be fixed in pipeline to use proper field
+                to=campaign.recipient_email,
                 subject=campaign.subject,
                 body=campaign.body,
                 language=campaign.language,

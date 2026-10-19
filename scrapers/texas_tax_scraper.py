@@ -48,7 +48,7 @@ TEXAS_CAD_URLS = {
                  "76155", "76164", "76177", "76179", "76244", "76248"],
     },
     "Travis": {
-        "search": "https://www.traviscad.org/property-search",
+        "search": "https://tax-office.traviscountytx.gov/delinquent-tax-sales",
         "name": "Travis Central Appraisal District",
         "platform": "traviscad",
         "city": "Austin",
@@ -481,32 +481,10 @@ class TexasTaxScraper(BaseScraper):
             ta_props = self._parse_trueautomation_results(html, county, "")
             properties.extend(ta_props)
 
-        # Also try zip code searches for counties that have them
-        for zip_code in zips:
-            params = {"ZipCode": zip_code, "zipcode": zip_code, "zip": zip_code}
-            html = await self.fetch(search_url, params=params)
-            if not html:
-                continue
-
-            soup = BeautifulSoup(html, "html.parser")
-            rows = soup.find_all("tr", class_=re.compile(r"DataRow|row|result|record"))
-            for row in rows:
-                cells = row.find_all("td")
-                if len(cells) >= 3:
-                    texts = [c.get_text(strip=True) for c in cells]
-                    prop = self.normalize_property({
-                        "parcel_id": texts[0],
-                        "owner_name": texts[1] if len(texts) > 1 else "",
-                        "street": texts[2] if len(texts) > 2 else "",
-                        "city": city,
-                        "county": county,
-                        "state": "TX",
-                        "zip_code": zip_code,
-                        "source": f"{county.lower()}_cad",
-                        "source_url": search_url,
-                    })
-                    if prop.get("street"):
-                        properties.append(prop)
+        # NOTE: Most CAD sites use JavaScript-driven forms that don't support
+        # URL-based zip code searches. Hammering them with zip params wastes
+        # cycle time and gets us blocked. The main page + delinquent list
+        # approach above is more reliable.
 
         return properties
 

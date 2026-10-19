@@ -170,13 +170,15 @@ class WholesalePipeline:
                     db.add(prop)
                     db.flush()  # get prop.id for owner FK
 
-                    if prop_data.get("owner_name"):
-                        owner = Owner(
-                            property_id=prop.id,
-                            full_name=prop_data["owner_name"],
-                            mailing_address=prop_data.get("owner_mailing_address", ""),
-                        )
-                        db.add(owner)
+                    # Always create an Owner record so skip trace can find contacts
+                    # via address-based reverse lookup even without a name
+                    owner_name = prop_data.get("owner_name", "").strip()
+                    owner = Owner(
+                        property_id=prop.id,
+                        full_name=owner_name if owner_name else None,
+                        mailing_address=prop_data.get("owner_mailing_address", ""),
+                    )
+                    db.add(owner)
 
                     db.commit()
                     new_count += 1
@@ -305,42 +307,63 @@ class WholesalePipeline:
     # ── Phase 2: Skip Trace ──────────────────────────────────────
 
     async def phase_skip_trace(self):
-        """Find contact info for owners without it."""
+        """Find contact info for owners without it.
+
+        Handles two cases:
+        1. Owners WITH a name → standard name-based people search
+        2. Owners WITHOUT a name (e.g. Craigslist leads) → address-based reverse lookup
+        """
         logger.info("🔍 Phase 2: Skip tracing...")
         db = SessionLocal()
 
         try:
-            # Find owners without contact info
+            # Find ALL owners without contact info (with OR without names)
             owners = (
                 db.query(Owner)
+                .join(Property)
                 .filter(
                     Owner.phone_1.is_(None),
                     Owner.email_1.is_(None),
-                    Owner.full_name.isnot(None),
+                    Owner.skip_traced_at.is_(None),
                 )
                 .limit(50)  # Process 50 per cycle
                 .all()
             )
 
             logger.info(f"Skip tracing {len(owners)} owners...")
+            traced_count = 0
 
             async with SkipTracer() as tracer:
                 for owner in owners:
-                    if not owner.full_name:
+                    prop = owner.property
+                    if not prop:
                         continue
 
-                    prop = owner.property
-                    city = prop.city if prop else ""
+                    city = prop.city or ""
+                    result = None
 
-                    result = await tracer.trace_owner(owner.full_name, city, "TX")
+                    if owner.full_name:
+                        # Case 1: Have a name — do name-based lookup
+                        result = await tracer.trace_owner(owner.full_name, city, "TX")
+                    elif prop.street and city:
+                        # Case 2: No name (Craigslist etc) — do address-based reverse lookup
+                        result = await tracer.trace_by_address(prop.street, city, "TX")
+                        # If we found a name, save it
+                        if result and result.get("name"):
+                            owner.full_name = result["name"]
 
-                    if result["phones"]:
+                    if not result:
+                        owner.skip_traced_at = datetime.utcnow()
+                        owner.skip_trace_source = "no_result"
+                        continue
+
+                    if result.get("phones"):
                         owner.phone_1 = result["phones"][0]
                         if len(result["phones"]) > 1:
                             owner.phone_2 = result["phones"][1]
                         owner.phone_verified = True
 
-                    if result["emails"]:
+                    if result.get("emails"):
                         owner.email_1 = result["emails"][0]
                         if len(result["emails"]) > 1:
                             owner.email_2 = result["emails"][1]
@@ -349,9 +372,10 @@ class WholesalePipeline:
                     owner.preferred_language = result.get("preferred_language", "en")
                     owner.skip_trace_source = ", ".join(result.get("sources", []))
                     owner.skip_traced_at = datetime.utcnow()
+                    traced_count += 1
 
             db.commit()
-            logger.info(f"✅ Skip traced {len(owners)} owners")
+            logger.info(f"✅ Skip traced {traced_count}/{len(owners)} owners with contact info")
 
         except Exception as e:
             logger.error(f"Skip trace error: {e}", exc_info=True)
@@ -472,6 +496,7 @@ class WholesalePipeline:
                     for sms in sequence:
                         drip = SMSDrip(
                             property_id=prop.id,
+                            phone=owner.phone_1,
                             sequence_number=sms["sequence_number"],
                             language=sms["language"],
                             next_send_at=sms["send_at"],
@@ -491,6 +516,7 @@ class WholesalePipeline:
                     for em in email_seq:
                         campaign = EmailCampaign(
                             property_id=prop.id,
+                            recipient_email=owner.email_1,
                             sequence_number=em["sequence_number"],
                             language=em["language"],
                             subject=em["subject"],
@@ -499,9 +525,8 @@ class WholesalePipeline:
                         )
                         db.add(campaign)
 
-                # 3. Schedule voice call (for A-grade deals only)
-                if deal.grade == "A" and owner.phone_1 and self.vapi_assistant_en:
-                    assistant_id = self.vapi_assistant_es if lang == "es" else self.vapi_assistant_en
+                # 3. Schedule voice call (for A-grade deals only) via Telnyx outbound
+                if deal.grade == "A" and owner.phone_1:
                     prop_info = {
                         "street": prop.street,
                         "city": prop.city,

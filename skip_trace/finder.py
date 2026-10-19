@@ -68,6 +68,131 @@ class SkipTracer(BaseScraper):
 
         return result
 
+    async def trace_by_address(self, street: str, city: str, state: str = "TX") -> dict:
+        """
+        Reverse lookup by property address when we don't have an owner name.
+        Used for Craigslist and other leads where owner info isn't available.
+        Returns: {name: str|None, phones: [], emails: [], preferred_language: 'en'|'es', sources: []}
+        """
+        result = {
+            "name": None,
+            "phones": [],
+            "emails": [],
+            "addresses": [],
+            "preferred_language": "en",
+            "sources": [],
+        }
+
+        # Try TruePeopleSearch address reverse lookup
+        tps_result = await self._search_truepeoplesearch_address(street, city, state)
+        if isinstance(tps_result, dict):
+            if tps_result.get("name"):
+                result["name"] = tps_result["name"]
+            result["phones"].extend(tps_result.get("phones", []))
+            result["emails"].extend(tps_result.get("emails", []))
+            result["sources"].extend(tps_result.get("sources", []))
+
+        # Try FastPeopleSearch address lookup
+        fps_result = await self._search_fastpeoplesearch_address(street, city, state)
+        if isinstance(fps_result, dict):
+            if not result["name"] and fps_result.get("name"):
+                result["name"] = fps_result["name"]
+            result["phones"].extend(fps_result.get("phones", []))
+            result["emails"].extend(fps_result.get("emails", []))
+            result["sources"].extend(fps_result.get("sources", []))
+
+        # Deduplicate
+        result["phones"] = list(dict.fromkeys(result["phones"]))[:3]
+        result["emails"] = list(dict.fromkeys(result["emails"]))[:3]
+
+        # Detect language if we found a name
+        if result["name"]:
+            result["preferred_language"] = self._detect_language(result["name"])
+
+        return result
+
+    async def _search_truepeoplesearch_address(self, street: str, city: str, state: str) -> dict:
+        """Reverse address lookup on TruePeopleSearch."""
+        result = {"name": None, "phones": [], "emails": [], "sources": []}
+
+        # Clean up street for URL
+        street_clean = re.sub(r'[^\w\s]', '', street).strip()
+        url = f"https://www.truepeoplesearch.com/resultaddress?streetaddress={street_clean.replace(' ', '+')}&citystatezip={city.replace(' ', '+')}+{state}"
+
+        html = await self.fetch(url)
+        if not html:
+            return result
+
+        soup = BeautifulSoup(html, "html.parser")
+
+        # Get resident name from the first result card
+        name_el = soup.find("div", class_=re.compile(r"card-title|name"))
+        if name_el:
+            name_link = name_el.find("a")
+            if name_link:
+                result["name"] = name_link.get_text(strip=True).title()
+
+        # Phone numbers
+        phone_links = soup.find_all("a", href=re.compile(r"tel:"))
+        for link in phone_links:
+            phone = re.sub(r'[^\d]', '', link.get_text(strip=True))
+            if len(phone) == 10:
+                result["phones"].append(phone)
+            elif len(phone) == 11 and phone.startswith("1"):
+                result["phones"].append(phone[1:])
+
+        # Email addresses
+        email_spans = soup.find_all("span", class_=re.compile(r"email"))
+        for span in email_spans:
+            email = span.get_text(strip=True)
+            if "@" in email:
+                result["emails"].append(email.lower())
+
+        if result["name"] or result["phones"] or result["emails"]:
+            result["sources"].append("truepeoplesearch_address")
+
+        return result
+
+    async def _search_fastpeoplesearch_address(self, street: str, city: str, state: str) -> dict:
+        """Reverse address lookup on FastPeopleSearch."""
+        result = {"name": None, "phones": [], "emails": [], "sources": []}
+
+        street_slug = re.sub(r'[^\w\s]', '', street).strip().lower().replace(' ', '-')
+        city_slug = city.lower().replace(' ', '-')
+
+        url = f"https://www.fastpeoplesearch.com/address/{street_slug}_{city_slug}-{state.lower()}"
+        html = await self.fetch(url)
+        if not html:
+            return result
+
+        soup = BeautifulSoup(html, "html.parser")
+
+        # Get resident name
+        name_el = soup.find("h2", class_=re.compile(r"name|title"))
+        if name_el:
+            name_link = name_el.find("a")
+            if name_link:
+                result["name"] = name_link.get_text(strip=True).title()
+
+        # Phone numbers
+        phone_els = soup.find_all(text=re.compile(r'\(\d{3}\)\s*\d{3}-\d{4}'))
+        for el in phone_els:
+            phone = re.sub(r'[^\d]', '', el.strip())
+            if len(phone) == 10:
+                result["phones"].append(phone)
+
+        # Email
+        email_links = soup.find_all("a", href=re.compile(r"mailto:"))
+        for link in email_links:
+            email = link.get("href", "").replace("mailto:", "").strip()
+            if "@" in email:
+                result["emails"].append(email.lower())
+
+        if result["name"] or result["phones"] or result["emails"]:
+            result["sources"].append("fastpeoplesearch_address")
+
+        return result
+
     async def _search_truepeoplesearch(self, name: str, city: str, state: str) -> dict:
         """Search TruePeopleSearch for contact info (free)."""
         result = {"phones": [], "emails": [], "addresses": [], "sources": []}

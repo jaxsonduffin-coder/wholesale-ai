@@ -215,6 +215,7 @@ class SMSDrip(Base):
     sequence_number = Column(Integer, default=1)
     max_sequence = Column(Integer, default=5)
     language = Column(String(2), default="en")
+    phone = Column(String(20))  # Recipient phone number
     next_send_at = Column(DateTime)
     sent = Column(Boolean, default=False)
     message = Column(Text)
@@ -231,6 +232,7 @@ class EmailCampaign(Base):
     sequence_number = Column(Integer, default=1)
     max_sequence = Column(Integer, default=3)
     language = Column(String(2), default="en")
+    recipient_email = Column(String(255))  # Where to send
     subject = Column(String(255))
     body = Column(Text)
     next_send_at = Column(DateTime)
