@@ -154,6 +154,19 @@ class CraigslistScraper(BaseScraper):
         "austin": "https://austin.craigslist.org",
         "elpaso": "https://elpaso.craigslist.org",
         "mcallen": "https://mcallen.craigslist.org",
+        "corpuschristi": "https://corpuschristi.craigslist.org",
+        "killeen": "https://killeen.craigslist.org",
+        "laredo": "https://laredo.craigslist.org",
+        "lubbock": "https://lubbock.craigslist.org",
+        "amarillo": "https://amarillo.craigslist.org",
+        "brownsville": "https://brownsville.craigslist.org",
+        "beaumont": "https://beaumont.craigslist.org",
+        "waco": "https://waco.craigslist.org",
+        "tyler": "https://tyler.craigslist.org",
+        "odessa": "https://odessa.craigslist.org",
+        "galveston": "https://galveston.craigslist.org",
+        "collegestation": "https://collegestation.craigslist.org",
+        "sanmarcos": "https://sanmarcos.craigslist.org",
     }
 
     # Keywords that signal motivated sellers
@@ -230,6 +243,8 @@ class CraigslistScraper(BaseScraper):
                 "street": location or title[:50],
                 "city": city.replace("sanantonio", "San Antonio").replace("fortworth", "Fort Worth")
                              .replace("elpaso", "El Paso").replace("mcallen", "McAllen")
+                             .replace("corpuschristi", "Corpus Christi").replace("collegestation", "College Station")
+                             .replace("sanmarcos", "San Marcos").replace("brownsville", "Brownsville")
                              .title(),
                 "state": "TX",
                 "source": "craigslist",
@@ -255,7 +270,12 @@ class PreForeclosureScraper(BaseScraper):
     """
 
     async def scrape(self, counties: list[str] = None) -> list[dict]:
-        counties = counties or ["Harris", "Bexar", "Dallas"]
+        counties = counties or [
+            "Harris", "Bexar", "Dallas", "Tarrant", "Travis",
+            "El Paso", "Hidalgo", "Fort Bend", "Collin", "Denton",
+            "Williamson", "Montgomery", "Brazoria", "Nueces", "Cameron",
+            "Webb", "Lubbock",
+        ]
         all_props = []
         for county in counties:
             try:

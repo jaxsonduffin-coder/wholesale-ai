@@ -252,13 +252,88 @@ class TexasTaxScraper(BaseScraper):
         if not cad_info:
             return properties
 
-        # For Harris County (largest in TX), use their API-like search
+        # County-specific scrapers for the big 3, generic for the rest
         if county == "Harris":
             properties = await self._scrape_harris_cad()
         elif county == "Bexar":
             properties = await self._scrape_bexar_cad()
         elif county == "Dallas":
             properties = await self._scrape_dallas_cad()
+        else:
+            # Generic CAD scraper — works for any county with zips defined
+            properties = await self._scrape_generic_cad(county)
+
+        return properties
+
+    async def _scrape_generic_cad(self, county: str) -> list[dict]:
+        """Generic CAD scraper for counties with defined zip codes and search URLs."""
+        properties = []
+        cad_info = TEXAS_CAD_URLS.get(county)
+        if not cad_info:
+            return properties
+
+        zips = cad_info.get("zips", [])
+        city = cad_info.get("city", "")
+        search_url = cad_info.get("search", "")
+        platform = cad_info.get("platform", "")
+
+        if not search_url:
+            return properties
+
+        # Try the main search page first
+        html = await self.fetch(search_url)
+        if html:
+            soup = BeautifulSoup(html, "html.parser")
+            # Look for property tables on the main page
+            for table in soup.find_all("table"):
+                rows = table.find_all("tr")
+                for row in rows[1:]:
+                    cells = row.find_all("td")
+                    if len(cells) >= 3:
+                        texts = [c.get_text(strip=True) for c in cells]
+                        prop = self.normalize_property({
+                            "parcel_id": texts[0],
+                            "owner_name": texts[1] if len(texts) > 1 else "",
+                            "street": texts[2] if len(texts) > 2 else "",
+                            "city": city,
+                            "county": county,
+                            "state": "TX",
+                            "source": f"{county.lower()}_cad",
+                            "source_url": search_url,
+                        })
+                        if prop.get("street"):
+                            properties.append(prop)
+
+            # Try TrueAutomation-style results (many TX counties use this)
+            ta_props = self._parse_trueautomation_results(html, county, "")
+            properties.extend(ta_props)
+
+        # Also try zip code searches for counties that have them
+        for zip_code in zips[:10]:  # First 10 zips per county
+            params = {"ZipCode": zip_code, "zipcode": zip_code, "zip": zip_code}
+            html = await self.fetch(search_url, params=params)
+            if not html:
+                continue
+
+            soup = BeautifulSoup(html, "html.parser")
+            rows = soup.find_all("tr", class_=re.compile(r"DataRow|row|result|record"))
+            for row in rows:
+                cells = row.find_all("td")
+                if len(cells) >= 3:
+                    texts = [c.get_text(strip=True) for c in cells]
+                    prop = self.normalize_property({
+                        "parcel_id": texts[0],
+                        "owner_name": texts[1] if len(texts) > 1 else "",
+                        "street": texts[2] if len(texts) > 2 else "",
+                        "city": city,
+                        "county": county,
+                        "state": "TX",
+                        "zip_code": zip_code,
+                        "source": f"{county.lower()}_cad",
+                        "source_url": search_url,
+                    })
+                    if prop.get("street"):
+                        properties.append(prop)
 
         return properties
 

@@ -19,6 +19,10 @@ from utils.database import (
 )
 from scrapers.texas_tax_scraper import TexasTaxScraper
 from scrapers.listing_scraper import ZillowFSBOScraper, CraigslistScraper, PreForeclosureScraper
+from scrapers.auction_scraper import (
+    AuctionDotComScraper, HUDHomesScraper, ProbateScraper,
+    CodeViolationScraper, HomepathScraper, FreddieMacScraper,
+)
 from skip_trace.finder import SkipTracer
 from analyzers.deal_analyzer import DealAnalyzer
 from voice_agent.caller import VapiVoiceAgent
@@ -93,36 +97,95 @@ class WholesalePipeline:
     # ── Phase 1: Scrape ──────────────────────────────────────────
 
     async def phase_scrape(self):
-        """Scrape all sources for new leads."""
-        logger.info("📡 Phase 1: Scraping leads...")
+        """Scrape ALL sources for new leads — runs concurrently for speed."""
+        logger.info("📡 Phase 1: Scraping leads (all counties, all sources, concurrent)...")
         db = SessionLocal()
 
         try:
+            all_counties = settings.buy_box.target_counties  # ALL counties, no limit
+
+            # ── Helper coroutines for each scraper ──
+            async def run_tax_scraper():
+                async with TexasTaxScraper(counties=all_counties) as s:
+                    return await s.scrape()
+
+            async def run_zillow():
+                cities = [
+                    "Houston-TX", "San-Antonio-TX", "Dallas-TX", "Fort-Worth-TX",
+                    "Austin-TX", "El-Paso-TX", "Arlington-TX", "Corpus-Christi-TX",
+                    "Plano-TX", "Laredo-TX", "Lubbock-TX", "Garland-TX",
+                    "Irving-TX", "Amarillo-TX", "Grand-Prairie-TX",
+                    "Brownsville-TX", "McKinney-TX", "Frisco-TX",
+                    "Pasadena-TX", "Mesquite-TX", "McAllen-TX",
+                    "Round-Rock-TX", "Sugar-Land-TX", "Denton-TX",
+                    "Killeen-TX", "Midland-TX", "Odessa-TX",
+                    "Beaumont-TX", "Conroe-TX", "Pearland-TX",
+                ]
+                async with ZillowFSBOScraper() as s:
+                    return await s.scrape(cities=cities)
+
+            async def run_craigslist():
+                async with CraigslistScraper() as s:
+                    return await s.scrape()
+
+            async def run_preforeclosure():
+                async with PreForeclosureScraper() as s:
+                    return await s.scrape(counties=all_counties)
+
+            async def run_auction():
+                async with AuctionDotComScraper() as s:
+                    return await s.scrape()
+
+            async def run_hud():
+                async with HUDHomesScraper() as s:
+                    return await s.scrape()
+
+            async def run_probate():
+                async with ProbateScraper() as s:
+                    return await s.scrape(counties=all_counties)
+
+            async def run_code_violations():
+                async with CodeViolationScraper() as s:
+                    return await s.scrape()
+
+            async def run_homepath():
+                async with HomepathScraper() as s:
+                    return await s.scrape()
+
+            async def run_freddiemac():
+                async with FreddieMacScraper() as s:
+                    return await s.scrape()
+
+            # ── Run ALL scrapers concurrently ──
+            results = await asyncio.gather(
+                run_tax_scraper(),
+                run_zillow(),
+                run_craigslist(),
+                run_preforeclosure(),
+                run_auction(),
+                run_hud(),
+                run_probate(),
+                run_code_violations(),
+                run_homepath(),
+                run_freddiemac(),
+                return_exceptions=True,
+            )
+
+            scraper_names = [
+                "Tax delinquent", "Zillow FSBO", "Craigslist", "Pre-foreclosure",
+                "Auction.com", "HUD Homes", "Probate", "Code violations",
+                "HomePath", "HomeSteps",
+            ]
+
             all_properties = []
-
-            # Tax delinquent lists
-            async with TexasTaxScraper(counties=settings.buy_box.target_counties[:3]) as scraper:
-                props = await scraper.scrape()
-                all_properties.extend(props)
-                logger.info(f"Tax scraper: {len(props)} properties")
-
-            # Zillow FSBO
-            async with ZillowFSBOScraper() as scraper:
-                props = await scraper.scrape()
-                all_properties.extend(props)
-                logger.info(f"Zillow FSBO: {len(props)} properties")
-
-            # Craigslist motivated sellers
-            async with CraigslistScraper() as scraper:
-                props = await scraper.scrape()
-                all_properties.extend(props)
-                logger.info(f"Craigslist: {len(props)} properties")
-
-            # Pre-foreclosure
-            async with PreForeclosureScraper() as scraper:
-                props = await scraper.scrape()
-                all_properties.extend(props)
-                logger.info(f"Pre-foreclosure: {len(props)} properties")
+            for name, result in zip(scraper_names, results):
+                if isinstance(result, Exception):
+                    logger.error(f"{name} scraper failed: {result}")
+                elif isinstance(result, list):
+                    all_properties.extend(result)
+                    logger.info(f"{name}: {len(result)} properties")
+                else:
+                    logger.warning(f"{name}: unexpected result type")
 
             # Save to database (skip duplicates by parcel_id)
             new_count = 0

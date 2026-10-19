@@ -21,7 +21,9 @@ class BuyBox:
     target_states: list = field(default_factory=lambda: ["TX"])
     target_counties: list = field(default_factory=lambda: [
         "Harris", "Bexar", "Dallas", "Tarrant", "Travis",
-        "El Paso", "Hidalgo", "Fort Bend", "Collin", "Denton"
+        "El Paso", "Hidalgo", "Fort Bend", "Collin", "Denton",
+        "Williamson", "Montgomery", "Brazoria", "Nueces", "Cameron",
+        "Webb", "Lubbock",
     ])
 
 # ── Database ──────────────────────────────────────────────────────
@@ -114,10 +116,10 @@ class Contract:
 @dataclass
 class Pipeline:
     cycle_interval_hours: int = 6
-    max_scrape_per_cycle: int = 200
-    max_skip_trace_per_cycle: int = 50
-    max_analyze_per_cycle: int = 100
-    max_outreach_per_cycle: int = 50
+    max_scrape_per_cycle: int = 500
+    max_skip_trace_per_cycle: int = 100
+    max_analyze_per_cycle: int = 200
+    max_outreach_per_cycle: int = 100
 
 # ── Server ────────────────────────────────────────────────────────
 @dataclass
