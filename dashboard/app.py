@@ -345,6 +345,43 @@ async def send_to_jv(deal_id: int, db: Session = Depends(get_db)):
     raise HTTPException(status_code=500, detail="Failed to send to JV partner")
 
 
+# ── Telnyx Voice Webhook (Outbound AI Agent) ────────────────────
+
+@app.post("/api/telnyx/voice-webhook")
+async def telnyx_voice_webhook(request: Request):
+    """Handle Telnyx Call Control events for the outbound AI voice agent."""
+    from voice_agent.telnyx_caller import telnyx_agent
+    try:
+        event = await request.json()
+        await telnyx_agent.handle_webhook(event)
+    except Exception as e:
+        logging.getLogger(__name__).error(f"Telnyx webhook error: {e}")
+    # Always return 200 so Telnyx doesn't retry
+    return JSONResponse({"status": "ok"})
+
+
+@app.post("/api/outbound-call")
+async def trigger_outbound_call(
+    phone: str = Form(...),
+    language: str = Form("en"),
+    property_address: str = Form(""),
+    owner_name: str = Form(""),
+):
+    """Manually trigger an outbound AI call from the dashboard."""
+    from voice_agent.telnyx_caller import telnyx_agent
+    result = await telnyx_agent.make_call(
+        phone_number=phone,
+        property_info={
+            "street": property_address,
+            "owner_name": owner_name,
+        },
+        language=language,
+    )
+    if result:
+        return JSONResponse(result)
+    raise HTTPException(status_code=500, detail="Failed to initiate call")
+
+
 # ── Frontend (Single HTML Page — PWA) ────────────────────────────
 
 @app.get("/", response_class=HTMLResponse)

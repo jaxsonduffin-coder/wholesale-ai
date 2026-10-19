@@ -22,6 +22,7 @@ from scrapers.listing_scraper import ZillowFSBOScraper, CraigslistScraper, PreFo
 from skip_trace.finder import SkipTracer
 from analyzers.deal_analyzer import DealAnalyzer
 from voice_agent.caller import VapiVoiceAgent
+from voice_agent.telnyx_caller import TelnyxOutboundAgent
 from voice_agent.sms_campaign import SMSCampaignManager
 from voice_agent.email_campaign import EmailCampaignManager
 from contracts.generator import ContractGenerator
@@ -41,9 +42,10 @@ class WholesalePipeline:
         self.contract_gen = ContractGenerator()
         self.sms_manager = SMSCampaignManager()
         self.email_manager = EmailCampaignManager()
-        self.voice_agent = VapiVoiceAgent()
+        self.voice_agent = VapiVoiceAgent()       # Inbound calls
+        self.outbound_agent = TelnyxOutboundAgent()  # Outbound calls
 
-        # Track assistants
+        # Track Vapi assistants (inbound)
         self.vapi_assistant_en = None
         self.vapi_assistant_es = None
 
@@ -391,9 +393,8 @@ class WholesalePipeline:
                         "pre_foreclosure": prop.pre_foreclosure,
                         "vacant": prop.vacant,
                     }
-                    call_result = await self.voice_agent.make_call(
+                    call_result = await self.outbound_agent.make_call(
                         phone_number=owner.phone_1,
-                        assistant_id=assistant_id,
                         property_info=prop_info,
                         language=lang,
                     )
