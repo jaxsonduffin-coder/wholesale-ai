@@ -157,7 +157,7 @@ class VapiVoiceAgent:
 
         payload = {
             "assistantId": assistant_id,
-            "phoneNumberId": settings.twilio.phone_number,
+            "phoneNumberId": os.getenv("VAPI_PHONE_NUMBER", ""),
             "customer": {
                 "number": phone,
             },

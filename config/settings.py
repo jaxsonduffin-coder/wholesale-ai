@@ -32,12 +32,12 @@ class Database:
     supabase_url: str = os.getenv("SUPABASE_URL", "")
     supabase_key: str = os.getenv("SUPABASE_KEY", "")
 
-# ── Twilio (SMS) ──────────────────────────────────────────────────
+# ── Telnyx (SMS) ~$0.004/msg — half the cost of Twilio ───────────
 @dataclass
-class Twilio:
-    account_sid: str = os.getenv("TWILIO_ACCOUNT_SID", "")
-    auth_token: str = os.getenv("TWILIO_AUTH_TOKEN", "")
-    phone_number: str = os.getenv("TWILIO_PHONE_NUMBER", "")
+class Telnyx:
+    api_key: str = os.getenv("TELNYX_API_KEY", "")
+    phone_number: str = os.getenv("TELNYX_PHONE_NUMBER", "")
+    messaging_profile_id: str = os.getenv("TELNYX_MESSAGING_PROFILE_ID", "")
     # SMS drip campaign settings
     max_sms_per_day: int = 200
     sms_delay_seconds: int = 30  # Between messages to avoid spam flags
@@ -101,10 +101,14 @@ class Contract:
     earnest_money_default: float = 100.0
     inspection_period_days: int = 14
     closing_period_days: int = 30
-    # JV Partner
+    # JV Partner — Primary (MaxDispo, fee-on-top)
     jv_partner_name: str = os.getenv("JV_PARTNER_NAME", "")
     jv_partner_email: str = os.getenv("JV_PARTNER_EMAIL", "")
     jv_partner_phone: str = os.getenv("JV_PARTNER_PHONE", "")
+    # JV Partner — Backup (Cash Home Investors, 60/40)
+    jv_backup_name: str = os.getenv("JV_BACKUP_NAME", "")
+    jv_backup_email: str = os.getenv("JV_BACKUP_EMAIL", "")
+    jv_backup_phone: str = os.getenv("JV_BACKUP_PHONE", "")
 
 # ── Pipeline ──────────────────────────────────────────────────────
 @dataclass
@@ -129,7 +133,7 @@ class Server:
 class Settings:
     buy_box: BuyBox = field(default_factory=BuyBox)
     database: Database = field(default_factory=Database)
-    twilio: Twilio = field(default_factory=Twilio)
+    telnyx: Telnyx = field(default_factory=Telnyx)
     vapi: Vapi = field(default_factory=Vapi)
     email: Email = field(default_factory=Email)
     scraping: Scraping = field(default_factory=Scraping)

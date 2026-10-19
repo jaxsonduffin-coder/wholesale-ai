@@ -531,36 +531,52 @@ class WholesalePipeline:
             })
             deal_summary = self.analyzer.format_analysis(analysis)
 
-            # Email to JV partner
-            jv_email = settings.contract.jv_partner_email
-            if not jv_email:
+            # Email to JV partner(s) — primary first, then backup
+            jv_primary = settings.contract.jv_partner_email
+            jv_backup = settings.contract.jv_backup_email
+            jv_targets = []
+            if jv_primary:
+                jv_targets.append((jv_primary, settings.contract.jv_partner_name))
+            if jv_backup:
+                jv_targets.append((jv_backup, settings.contract.jv_backup_name))
+
+            if not jv_targets:
                 logger.warning("No JV partner email configured")
                 return False
 
-            subject = f"New Deal: {prop.street} {prop.city}, TX — ${deal.accepted_price or deal.max_offer:,.0f}"
+            for jv_email, jv_name in jv_targets:
+                subject = f"New Deal: {prop.street} {prop.city}, TX — ${deal.accepted_price or deal.max_offer:,.0f}"
 
-            body = f"""New wholesale deal ready for review!
+                body = f"""Hi {jv_name},
+
+New wholesale deal ready for review!
 
 {deal_summary}
 
-Contract Status: SIGNED
+Contract Status: SIGNED ✅
 Assignment Fee: ${deal.assignment_fee:,.0f}
 
-The signed contract is attached.
+The signed purchase agreement is attached.
+
+Property: {prop.street}, {prop.city}, {prop.state} {prop.zip_code}
+ARV: ${deal.arv:,.0f}
+Offer: ${deal.accepted_price or deal.max_offer:,.0f}
+Repairs: ${deal.repair_estimate:,.0f}
 
 Please review and let me know if you'd like to proceed.
 
 Best regards,
 {settings.contract.buyer_name}
+{settings.contract.buyer_phone}
 """
 
-            # Send with attachment
-            self._send_email_with_attachment(
-                to=jv_email,
-                subject=subject,
-                body=body,
-                attachment_path=deal.contract_path,
-            )
+                self._send_email_with_attachment(
+                    to=jv_email,
+                    subject=subject,
+                    body=body,
+                    attachment_path=deal.contract_path,
+                )
+                logger.info(f"Deal emailed to JV: {jv_name} ({jv_email})")
 
             deal.sent_to_jv = True
             deal.sent_to_jv_at = datetime.utcnow()

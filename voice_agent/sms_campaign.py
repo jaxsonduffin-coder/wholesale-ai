@@ -1,11 +1,13 @@
 """
 SMS Drip Campaign Manager.
-Sends bilingual (English/Spanish) SMS sequences to motivated sellers via Twilio.
+Sends bilingual (English/Spanish) SMS sequences to motivated sellers via Telnyx.
+Telnyx: ~$0.004/msg outbound, free inbound — about half the cost of Twilio.
 """
+import os
 import logging
+import httpx
 from datetime import datetime, timedelta
 from typing import Optional
-from twilio.rest import Client as TwilioClient
 from config.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -122,16 +124,15 @@ SMS_TEMPLATES_ES = [
 
 
 class SMSCampaignManager:
-    """Manages SMS drip campaigns via Twilio."""
+    """Manages SMS drip campaigns via Telnyx API."""
+
+    TELNYX_API_URL = "https://api.telnyx.com/v2/messages"
 
     def __init__(self):
-        self.twilio_config = settings.twilio
-        self.client = None
-        if self.twilio_config.account_sid and self.twilio_config.auth_token:
-            self.client = TwilioClient(
-                self.twilio_config.account_sid,
-                self.twilio_config.auth_token,
-            )
+        self.telnyx_config = settings.telnyx
+        self.api_key = self.telnyx_config.api_key
+        self.from_number = self.telnyx_config.phone_number
+        self.messaging_profile_id = self.telnyx_config.messaging_profile_id
 
     def get_templates(self, language: str = "en") -> list[dict]:
         """Get SMS templates for the given language."""
@@ -170,27 +171,44 @@ class SMSCampaignManager:
 
         return sequence
 
-    def send_sms(self, to: str, message: str) -> Optional[str]:
-        """Send a single SMS via Twilio. Returns message SID or None."""
-        if not self.client:
-            logger.error("Twilio not configured")
-            return None
-
-        # Format phone
-        phone = to.replace("-", "").replace("(", "").replace(")", "").replace(" ", "")
+    def _format_phone(self, phone: str) -> str:
+        """Normalize phone to E.164 format."""
+        phone = phone.replace("-", "").replace("(", "").replace(")", "").replace(" ", "")
         if len(phone) == 10:
             phone = f"+1{phone}"
         elif not phone.startswith("+"):
             phone = f"+{phone}"
+        return phone
+
+    def send_sms(self, to: str, message: str) -> Optional[str]:
+        """Send a single SMS via Telnyx. Returns message ID or None."""
+        if not self.api_key:
+            logger.error("Telnyx not configured — missing API key")
+            return None
+
+        phone = self._format_phone(to)
+
+        payload = {
+            "from": self.from_number,
+            "to": phone,
+            "text": message,
+        }
+        if self.messaging_profile_id:
+            payload["messaging_profile_id"] = self.messaging_profile_id
+
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
 
         try:
-            msg = self.client.messages.create(
-                body=message,
-                from_=self.twilio_config.phone_number,
-                to=phone,
-            )
-            logger.info(f"SMS sent to {phone}: {msg.sid}")
-            return msg.sid
+            with httpx.Client(timeout=15) as client:
+                resp = client.post(self.TELNYX_API_URL, json=payload, headers=headers)
+                resp.raise_for_status()
+                data = resp.json()
+                msg_id = data.get("data", {}).get("id", "unknown")
+                logger.info(f"SMS sent to {phone} via Telnyx: {msg_id}")
+                return msg_id
         except Exception as e:
             logger.error(f"SMS failed to {phone}: {e}")
             return None
@@ -213,25 +231,22 @@ class SMSCampaignManager:
                 SMSDrip.next_send_at <= now,
             )
             .order_by(SMSDrip.next_send_at)
-            .limit(self.twilio_config.max_sms_per_day)
+            .limit(self.telnyx_config.max_sms_per_day)
             .all()
         )
 
         for drip in pending:
-            # Check daily limit
-            if sent_count >= self.twilio_config.max_sms_per_day:
+            if sent_count >= self.telnyx_config.max_sms_per_day:
                 break
 
-            # Send
-            sid = self.send_sms(drip.message, drip.message)
+            sid = self.send_sms(drip.phone, drip.message)
             if sid:
                 drip.sent = True
                 sent_count += 1
 
-            # Delay between sends
             import asyncio
-            await asyncio.sleep(self.twilio_config.sms_delay_seconds)
+            await asyncio.sleep(self.telnyx_config.sms_delay_seconds)
 
         db_session.commit()
-        logger.info(f"Sent {sent_count} SMS messages")
+        logger.info(f"Sent {sent_count} SMS messages via Telnyx")
         return sent_count
