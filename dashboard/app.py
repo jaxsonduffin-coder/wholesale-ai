@@ -382,6 +382,46 @@ async def trigger_outbound_call(
     raise HTTPException(status_code=500, detail="Failed to initiate call")
 
 
+# ── Manual Pipeline Trigger ──────────────────────────────────────
+
+_pipeline_running = False
+
+@app.post("/api/pipeline/run")
+async def trigger_pipeline():
+    """Manually trigger a full pipeline cycle."""
+    global _pipeline_running
+    if _pipeline_running:
+        return JSONResponse({"status": "already_running", "message": "Pipeline is already running"})
+
+    import threading
+
+    async def _run():
+        global _pipeline_running
+        _pipeline_running = True
+        try:
+            from pipeline import WholesalePipeline
+            p = WholesalePipeline()
+            await p.phase_scrape()
+            await p.phase_skip_trace()
+            await p.phase_analyze()
+            await p.phase_outreach()
+            await p.phase_process_responses()
+            await p.phase_drip_campaigns()
+        except Exception as e:
+            logging.getLogger(__name__).error(f"Manual pipeline error: {e}")
+        finally:
+            _pipeline_running = False
+
+    import asyncio
+    asyncio.create_task(_run())
+    return JSONResponse({"status": "started", "message": "Pipeline cycle started"})
+
+@app.get("/api/pipeline/status")
+async def pipeline_status():
+    """Check if pipeline is currently running."""
+    return JSONResponse({"running": _pipeline_running})
+
+
 # ── Frontend (Single HTML Page — PWA) ────────────────────────────
 
 @app.get("/", response_class=HTMLResponse)
@@ -684,6 +724,10 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                 <div class="logo-sub">24/7 AI Sales Force</div>
             </div>
         </div>
+        <button id="run-btn" onclick="runPipeline()" style="
+            background:var(--accent);color:#fff;border:none;border-radius:8px;
+            padding:6px 14px;font-size:.8rem;font-weight:600;cursor:pointer;
+        ">▶ Run Now</button>
         <div class="header-status">
             <div class="status-dot"></div>
             <span>Pipeline Active</span>
@@ -747,6 +791,28 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 const API='';
 let allDeals=[];
 let dashData=null;
+
+// ── Pipeline Trigger ────────────────────────────
+async function runPipeline(){
+    const btn=document.getElementById('run-btn');
+    btn.textContent='⏳ Running...';btn.disabled=true;
+    btn.style.opacity='0.6';
+    try{
+        const r=await fetch(API+'/api/pipeline/run',{method:'POST'});
+        const d=await r.json();
+        if(d.status==='already_running'){btn.textContent='⏳ Running...';}
+        else{btn.textContent='⏳ Running...';}
+        // Poll until done
+        const poll=setInterval(async()=>{
+            const s=await fetch(API+'/api/pipeline/status').then(r=>r.json());
+            if(!s.running){
+                clearInterval(poll);
+                btn.textContent='▶ Run Now';btn.disabled=false;btn.style.opacity='1';
+                loadDashboard();loadDeals();
+            }
+        },10000);
+    }catch(e){btn.textContent='▶ Run Now';btn.disabled=false;btn.style.opacity='1';}
+}
 
 // ── Navigation ───────────────────────────────────
 function showPage(page){
