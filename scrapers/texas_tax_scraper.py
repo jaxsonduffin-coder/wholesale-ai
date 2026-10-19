@@ -208,10 +208,11 @@ class TexasTaxScraper(BaseScraper):
         properties = []
 
         # Common URL patterns for Texas county delinquent lists
+        slug = county.lower().replace(" ", "")
         delinquent_urls = [
-            f"https://www.{county.lower()}countytx.gov/tax-sales",
-            f"https://www.{county.lower()}county.org/delinquent-taxes",
-            f"https://tax.{county.lower()}countytx.gov/delinquent",
+            f"https://www.{slug}countytx.gov/tax-sales",
+            f"https://www.{slug}county.org/delinquent-taxes",
+            f"https://tax.{slug}countytx.gov/delinquent",
         ]
 
         for url in delinquent_urls:
@@ -420,8 +421,8 @@ class TexasTaxScraper(BaseScraper):
                 "state": "TX",
                 "tax_delinquent": True,
                 "tax_delinquent_amount": texts[-1] if len(texts) > 3 else "0",
-                "source": f"{county.lower()}_county_tax",
-                "source_url": f"https://www.{county.lower()}countytx.gov/tax-sales",
+                "source": f"{county.lower().replace(' ', '')}_county_tax",
+                "source_url": f"https://www.{county.lower().replace(' ', '')}countytx.gov/tax-sales",
             })
         except Exception:
             return None
