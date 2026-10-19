@@ -272,17 +272,93 @@ class PreForeclosureScraper(BaseScraper):
     """
     Scrape pre-foreclosure data from public records.
     Texas posts foreclosure notices (Notice of Default / Notice of Trustee Sale)
-    in county records and newspapers.
+    in county records and newspapers. Uses REAL county/state URLs.
     """
 
+    # Real foreclosure listing URLs for Texas counties
+    COUNTY_FORECLOSURE_URLS = {
+        "Harris": [
+            "https://www.hctax.net/Property/TaxSales",
+            "https://www.harriscountytx.gov/Departments/Clerk/Foreclosures",
+        ],
+        "Dallas": [
+            "https://www.dallascounty.org/departments/tax/delinquent-tax-sales.php",
+            "https://www.dallascounty.org/departments/clerk/foreclosure-postings.php",
+        ],
+        "Tarrant": [
+            "https://www.tarrantcounty.com/en/tax/tax-sale.html",
+            "https://www.tarrantcounty.com/en/county-clerk/real-property/foreclosure-postings.html",
+        ],
+        "Bexar": [
+            "https://www.bexar.org/3645/Tax-Sales",
+            "https://www.bexar.org/1568/Foreclosure-Sales",
+        ],
+        "Travis": [
+            "https://www.traviscountytx.gov/tax-assessor/delinquent-tax-sales",
+            "https://www.traviscountytx.gov/county-clerk/real-property/foreclosure-postings",
+        ],
+        "El Paso": [
+            "https://www.epcounty.com/taxoffice/taxsales.htm",
+        ],
+        "Hidalgo": [
+            "https://www.hidalgocounty.us/292/Tax-Sales",
+        ],
+        "Fort Bend": [
+            "https://www.fortbendcountytx.gov/government/departments/tax-assessor-collector/tax-sales",
+        ],
+        "Collin": [
+            "https://www.collincountytx.gov/tax_assessor_collector/Pages/tax-sales.aspx",
+        ],
+        "Denton": [
+            "https://www.dentoncounty.gov/669/Tax-Resales",
+        ],
+        "Williamson": [
+            "https://www.wilco.org/Departments/Tax-Assessor-Collector/Tax-Sales",
+        ],
+        "Montgomery": [
+            "https://www.mctx.org/departments/departments_a_-_c/county_tax_assessor-collector/tax_sales.php",
+        ],
+        "Nueces": [
+            "https://www.nuecesco.com/county-services/tax-office/delinquent-tax-sales",
+        ],
+        "Cameron": [
+            "https://www.cameroncounty.us/tax-office/delinquent-tax-sales/",
+        ],
+        "Lubbock": [
+            "https://www.co.lubbock.tx.us/departments/tax-assessor-collector/tax-sales",
+        ],
+        "Galveston": [
+            "https://www.galvestoncountytx.gov/our-county/tax-office/tax-sales",
+        ],
+        "McLennan": [
+            "https://www.mclennancountytx.gov/285/Tax-Sales",
+        ],
+        "Bell": [
+            "https://www.bellcountytx.com/county_government/tax_assessor_collector/tax_sales.php",
+        ],
+        "Midland": [
+            "https://www.co.midland.tx.us/221/Tax-Sales",
+        ],
+        "Smith": [
+            "https://www.smith-county.com/government/departments/tax-office/tax-sales",
+        ],
+        "Webb": [
+            "https://www.webbcountytx.gov/TaxAssessor/TaxSales/",
+        ],
+    }
+
+    # Statewide foreclosure aggregator sites
+    STATEWIDE_URLS = [
+        "https://www.foreclosure.com/listing/Texas",
+        "https://www.texasforeclosures.com/listings",
+        "https://www.realtytrac.com/mapsearch/texas/foreclosures/",
+    ]
+
     async def scrape(self, counties: list[str] = None) -> list[dict]:
-        counties = counties or [
-            "Harris", "Bexar", "Dallas", "Tarrant", "Travis",
-            "El Paso", "Hidalgo", "Fort Bend", "Collin", "Denton",
-            "Williamson", "Montgomery", "Brazoria", "Nueces", "Cameron",
-            "Webb", "Lubbock",
-        ]
+        counties = counties or list(self.COUNTY_FORECLOSURE_URLS.keys())
         all_props = []
+
+        # Scrape county-specific URLs
         for county in counties:
             try:
                 props = await self._scrape_county(county)
@@ -290,17 +366,22 @@ class PreForeclosureScraper(BaseScraper):
                 logger.info(f"Pre-foreclosure: {len(props)} in {county} County")
             except Exception as e:
                 logger.error(f"Error scraping pre-foreclosure {county}: {e}")
+
+        # Scrape statewide aggregator sites
+        for url in self.STATEWIDE_URLS:
+            try:
+                props = await self._scrape_aggregator(url)
+                all_props.extend(props)
+                logger.info(f"Pre-foreclosure aggregator: {len(props)} from {url}")
+            except Exception as e:
+                logger.error(f"Error scraping aggregator {url}: {e}")
+
         return all_props
 
     async def _scrape_county(self, county: str) -> list[dict]:
-        """Scrape pre-foreclosure notices from county records."""
+        """Scrape pre-foreclosure notices from real county URLs."""
         properties = []
-
-        # Texas foreclosure postings - many counties use similar systems
-        urls = [
-            f"https://www.{county.lower()}countyclerk.com/foreclosures",
-            f"https://www.county{county.lower()}.com/public-notices/foreclosure",
-        ]
+        urls = self.COUNTY_FORECLOSURE_URLS.get(county, [])
 
         for url in urls:
             html = await self.fetch(url)
@@ -308,35 +389,117 @@ class PreForeclosureScraper(BaseScraper):
                 continue
 
             soup = BeautifulSoup(html, "html.parser")
-            # Look for property listings in foreclosure notices
-            notices = soup.find_all(["div", "tr", "article"],
-                                    class_=re.compile(r"notice|foreclosure|listing|result"))
 
+            # Look for property data in tables (most county sites use tables)
+            tables = soup.find_all("table")
+            for table in tables:
+                rows = table.find_all("tr")
+                for row in rows:
+                    prop = self._parse_table_row(row, county)
+                    if prop:
+                        properties.append(prop)
+
+            # Also look for foreclosure notices in divs/articles/list items
+            notices = soup.find_all(
+                ["div", "tr", "article", "li", "p", "span"],
+                class_=re.compile(
+                    r"notice|foreclosure|listing|result|property|sale|delinquent|parcel",
+                    re.IGNORECASE,
+                ),
+            )
             for notice in notices:
                 prop = self._parse_foreclosure_notice(notice, county)
                 if prop:
                     properties.append(prop)
 
+            # Look for links to individual property/sale pages
+            links = soup.find_all("a", href=True)
+            for link in links:
+                link_text = link.get_text(strip=True).lower()
+                if any(kw in link_text for kw in ["property", "parcel", "sale", "foreclosure", "detail"]):
+                    prop = self._parse_foreclosure_notice(link.parent, county)
+                    if prop:
+                        properties.append(prop)
+
         return properties
 
-    def _parse_foreclosure_notice(self, notice, county: str) -> Optional[dict]:
-        """Parse a foreclosure notice for property info."""
+    async def _scrape_aggregator(self, url: str) -> list[dict]:
+        """Scrape statewide foreclosure aggregator sites."""
+        properties = []
+        html = await self.fetch(url)
+        if not html:
+            return properties
+
+        soup = BeautifulSoup(html, "html.parser")
+
+        # Common patterns for aggregator sites
+        cards = soup.find_all(
+            ["div", "article", "li"],
+            class_=re.compile(r"listing|property|result|card|item", re.IGNORECASE),
+        )
+
+        for card in cards:
+            text = card.get_text(" ", strip=True)
+            prop = self._extract_property_from_text(text, "aggregator")
+            if prop:
+                properties.append(prop)
+
+        return properties
+
+    def _parse_table_row(self, row, county: str) -> Optional[dict]:
+        """Parse a table row for property info (common in county tax sale pages)."""
         try:
-            text = notice.get_text(" ", strip=True)
-            # Try to extract address pattern
-            addr_match = re.search(
-                r'(\d+\s+[\w\s]+(?:St|Ave|Blvd|Dr|Ln|Rd|Ct|Way|Pl|Cir)\.?)',
-                text, re.IGNORECASE
-            )
-            if not addr_match:
+            cells = row.find_all(["td", "th"])
+            if len(cells) < 2:
                 return None
 
-            return self.normalize_property({
-                "street": addr_match.group(1).strip(),
-                "county": county,
-                "state": "TX",
-                "pre_foreclosure": True,
-                "source": f"{county.lower()}_foreclosure",
-            })
+            text = " ".join(c.get_text(strip=True) for c in cells)
+            return self._extract_property_from_text(text, f"{county.lower()}_foreclosure")
+        except Exception:
+            return None
+
+    def _extract_property_from_text(self, text: str, source: str) -> Optional[dict]:
+        """Extract property info from any block of text."""
+        if not text or len(text) < 10:
+            return None
+
+        # Try to extract address patterns
+        addr_match = re.search(
+            r'(\d+\s+[\w\s\.]+(?:St(?:reet)?|Ave(?:nue)?|Blvd|Boulevard|Dr(?:ive)?|'
+            r'Ln|Lane|Rd|Road|Ct|Court|Way|Pl(?:ace)?|Cir(?:cle)?|Pkwy|Hwy|'
+            r'Trl|Trail|Loop|Pass|Run|Path|Xing|Crossing)\.?)',
+            text, re.IGNORECASE,
+        )
+        if not addr_match:
+            return None
+
+        # Try to find a city
+        city_match = re.search(
+            r'(?:Houston|San Antonio|Dallas|Fort Worth|Austin|El Paso|'
+            r'Arlington|Corpus Christi|Plano|Laredo|Lubbock|Garland|'
+            r'Irving|Amarillo|Grand Prairie|Brownsville|McKinney|'
+            r'Frisco|Pasadena|McAllen|Killeen|Midland|Waco|'
+            r'Beaumont|Round Rock|Odessa|Tyler|College Station|'
+            r'Pearland|Sugar Land|Denton|Galveston|San Marcos)',
+            text, re.IGNORECASE,
+        )
+
+        # Try to find a zip code
+        zip_match = re.search(r'\b(7\d{4})\b', text)
+
+        return self.normalize_property({
+            "street": addr_match.group(1).strip(),
+            "city": city_match.group(0) if city_match else "",
+            "state": "TX",
+            "zip_code": zip_match.group(1) if zip_match else "",
+            "pre_foreclosure": True,
+            "source": source,
+        })
+
+    def _parse_foreclosure_notice(self, notice, county: str) -> Optional[dict]:
+        """Parse a foreclosure notice element for property info."""
+        try:
+            text = notice.get_text(" ", strip=True)
+            return self._extract_property_from_text(text, f"{county.lower()}_foreclosure")
         except Exception:
             return None
