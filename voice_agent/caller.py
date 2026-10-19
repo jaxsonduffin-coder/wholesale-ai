@@ -76,7 +76,22 @@ class VapiVoiceAgent:
     async def create_assistant(self, language: str = "en") -> Optional[str]:
         """Create a Vapi assistant for making calls."""
         prompt = ENGLISH_SYSTEM_PROMPT if language == "en" else SPANISH_SYSTEM_PROMPT
-        voice = "jennifer-playht" if language == "en" else "lucia-playht"
+
+        # Use Vapi's built-in 11labs voices (no extra credentials needed)
+        if language == "en":
+            voice_config = {
+                "provider": "11labs",
+                "voiceId": "21m00Tcm4TlvDq8ikWAM",  # Rachel — natural female
+                "stability": 0.5,
+                "similarityBoost": 0.75,
+            }
+        else:
+            voice_config = {
+                "provider": "11labs",
+                "voiceId": "AZnzlk1XvdvUeBnXmlld",  # Domi — works well for Spanish
+                "stability": 0.5,
+                "similarityBoost": 0.75,
+            }
 
         payload = {
             "name": f"Wholesale Agent ({language.upper()})",
@@ -86,10 +101,7 @@ class VapiVoiceAgent:
                 "messages": [{"role": "system", "content": prompt}],
                 "temperature": 0.7,
             },
-            "voice": {
-                "provider": "playht",
-                "voiceId": voice,
-            },
+            "voice": voice_config,
             "firstMessage": (
                 "Hi! My name is Jessica and I'm calling about your property. Do you have a moment to chat?"
                 if language == "en" else
