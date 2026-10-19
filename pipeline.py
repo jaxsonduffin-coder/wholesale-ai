@@ -115,68 +115,74 @@ class WholesalePipeline:
     # ── Scraping (tiered for stealth + continuous leads) ───────────
 
     def _save_properties(self, all_properties: list[dict]) -> int:
-        """Save scraped properties to database, skip duplicates. Returns count saved."""
+        """Save scraped properties to database, skip duplicates. Returns count saved.
+
+        Each property is committed individually so one bad record doesn't
+        roll back the entire batch.  Uses no_autoflush to prevent
+        IntegrityError during dedup queries.
+        """
         db = SessionLocal()
         new_count = 0
         try:
             for prop_data in all_properties:
-                parcel_id = prop_data.get("parcel_id")
-                if parcel_id:
-                    existing = db.query(Property).filter_by(parcel_id=parcel_id).first()
-                    if existing:
-                        continue
+                try:
+                    with db.no_autoflush:
+                        parcel_id = prop_data.get("parcel_id")
+                        if parcel_id:
+                            existing = db.query(Property).filter_by(parcel_id=parcel_id).first()
+                            if existing:
+                                continue
 
-                # Also dedupe by address
-                street = prop_data.get("street", "").strip()
-                if street:
-                    existing = db.query(Property).filter_by(
+                        # Also dedupe by address
+                        street = prop_data.get("street", "").strip()
+                        if street:
+                            existing = db.query(Property).filter_by(
+                                street=street,
+                                city=prop_data.get("city", ""),
+                                state=prop_data.get("state", "TX"),
+                            ).first()
+                            if existing:
+                                continue
+
+                    prop = Property(
                         street=street,
                         city=prop_data.get("city", ""),
+                        county=prop_data.get("county", ""),
                         state=prop_data.get("state", "TX"),
-                    ).first()
-                    if existing:
-                        continue
-
-                prop = Property(
-                    street=street,
-                    city=prop_data.get("city", ""),
-                    county=prop_data.get("county", ""),
-                    state=prop_data.get("state", "TX"),
-                    zip_code=prop_data.get("zip_code", ""),
-                    property_type=prop_data.get("property_type"),
-                    bedrooms=prop_data.get("bedrooms"),
-                    bathrooms=prop_data.get("bathrooms"),
-                    sqft=prop_data.get("sqft"),
-                    lot_size_sqft=prop_data.get("lot_size_sqft"),
-                    year_built=prop_data.get("year_built"),
-                    parcel_id=parcel_id,
-                    tax_assessed_value=prop_data.get("tax_assessed_value"),
-                    tax_delinquent=prop_data.get("tax_delinquent", False),
-                    tax_delinquent_amount=prop_data.get("tax_delinquent_amount"),
-                    pre_foreclosure=prop_data.get("pre_foreclosure", False),
-                    probate=prop_data.get("probate", False),
-                    vacant=prop_data.get("vacant", False),
-                    source=prop_data.get("source"),
-                    source_url=prop_data.get("source_url"),
-                    scraped_at=prop_data.get("scraped_at"),
-                )
-                db.add(prop)
-
-                if prop_data.get("owner_name"):
-                    db.flush()
-                    owner = Owner(
-                        property_id=prop.id,
-                        full_name=prop_data["owner_name"],
-                        mailing_address=prop_data.get("owner_mailing_address", ""),
+                        zip_code=prop_data.get("zip_code", ""),
+                        property_type=prop_data.get("property_type"),
+                        bedrooms=prop_data.get("bedrooms"),
+                        bathrooms=prop_data.get("bathrooms"),
+                        sqft=prop_data.get("sqft"),
+                        lot_size_sqft=prop_data.get("lot_size_sqft"),
+                        year_built=prop_data.get("year_built"),
+                        parcel_id=parcel_id,
+                        tax_assessed_value=prop_data.get("tax_assessed_value"),
+                        tax_delinquent=prop_data.get("tax_delinquent", False),
+                        tax_delinquent_amount=prop_data.get("tax_delinquent_amount"),
+                        pre_foreclosure=prop_data.get("pre_foreclosure", False),
+                        probate=prop_data.get("probate", False),
+                        vacant=prop_data.get("vacant", False),
+                        source=prop_data.get("source"),
+                        source_url=prop_data.get("source_url"),
+                        scraped_at=prop_data.get("scraped_at"),
                     )
-                    db.add(owner)
+                    db.add(prop)
+                    db.flush()  # get prop.id for owner FK
 
-                new_count += 1
+                    if prop_data.get("owner_name"):
+                        owner = Owner(
+                            property_id=prop.id,
+                            full_name=prop_data["owner_name"],
+                            mailing_address=prop_data.get("owner_mailing_address", ""),
+                        )
+                        db.add(owner)
 
-            db.commit()
-        except Exception as e:
-            logger.error(f"Save error: {e}", exc_info=True)
-            db.rollback()
+                    db.commit()
+                    new_count += 1
+                except Exception as e:
+                    db.rollback()
+                    logger.debug(f"Skip property (save error): {e}")
         finally:
             db.close()
         return new_count

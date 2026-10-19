@@ -15,9 +15,16 @@ logger = logging.getLogger(__name__)
 # Texas county appraisal district search URLs
 TEXAS_CAD_URLS = {
     "Harris": {
-        "search": "https://public.hcad.org/records/quicksearch.asp",
+        "search": "https://public.hcad.org/records/",
         "name": "Harris County Appraisal District",
         "platform": "hcad",
+        "city": "Houston",
+        "zips": ["77002", "77003", "77004", "77006", "77007", "77008",
+                 "77009", "77011", "77012", "77016", "77017", "77018",
+                 "77019", "77020", "77021", "77022", "77023", "77026",
+                 "77028", "77029", "77033", "77034", "77035", "77036",
+                 "77037", "77038", "77039", "77040", "77041", "77045",
+                 "77047", "77048", "77051", "77053", "77060", "77061"],
     },
     "Bexar": {
         "search": "https://bexar.trueautomation.com/clientdb/PropertySearch.aspx",
@@ -504,36 +511,55 @@ class TexasTaxScraper(BaseScraper):
         return properties
 
     async def _scrape_harris_cad(self) -> list[dict]:
-        """Scrape Harris County Appraisal District (Houston area)."""
+        """Scrape Harris County tax delinquent properties (Houston area).
+
+        Uses the Harris County Tax Office delinquent property list and
+        HCAD property search — the old quicksearch.asp endpoint is dead.
+        """
         properties = []
 
-        # HCAD has a searchable database. We search by neighborhood/zip
-        # to find properties with distress indicators
-        houston_zips = [
-            "77002", "77003", "77004", "77005", "77006", "77007", "77008",
-            "77009", "77010", "77011", "77012", "77013", "77015", "77016",
-            "77017", "77018", "77019", "77020", "77021", "77022", "77023",
-            "77024", "77025", "77026", "77027", "77028", "77029", "77030",
-            "77033", "77034", "77035", "77036", "77037", "77038", "77039",
-            "77040", "77041", "77042", "77043", "77044", "77045", "77047",
-            "77048", "77049", "77050", "77051", "77053", "77054", "77055",
-            "77056", "77057", "77058", "77059", "77060", "77061", "77062",
+        # Harris County Tax Office — delinquent property tax listings
+        tax_urls = [
+            "https://www.hctax.net/Property/TaxDelinquent",
+            "https://www.hctax.net/Property/PropertyTax",
         ]
 
-        for zip_code in houston_zips:
-            url = f"https://public.hcad.org/records/quicksearch.asp"
-            html = await self.fetch(url, params={"search_type": "zip", "search_value": zip_code})
+        for url in tax_urls:
+            html = await self.fetch(url)
             if not html:
                 continue
 
             soup = BeautifulSoup(html, "html.parser")
-            # Parse HCAD results - each result has account number, address, owner
-            results = soup.find_all("tr", class_=re.compile(r"row|result|record"))
-            for result in results:
-                prop = self._parse_hcad_result(result, zip_code)
-                if prop:
-                    properties.append(prop)
+            # Parse table rows from delinquent lists
+            tables = soup.find_all("table")
+            for table in tables:
+                rows = table.find_all("tr")
+                for row in rows[1:]:  # skip header
+                    cells = row.find_all(["td", "th"])
+                    prop = self._parse_delinquent_row(cells, "Harris")
+                    if prop:
+                        prop["city"] = prop.get("city") or "Houston"
+                        properties.append(prop)
 
+            # Also check for links to downloadable delinquent lists
+            for link in soup.find_all("a", href=True):
+                href = link["href"]
+                link_text = link.get_text(strip=True).lower()
+                if any(kw in link_text for kw in ["delinquent", "tax sale", "struck off"]):
+                    if href.startswith("/"):
+                        href = f"https://www.hctax.net{href}"
+                    sub_html = await self.fetch(href)
+                    if sub_html:
+                        sub_soup = BeautifulSoup(sub_html, "html.parser")
+                        for table in sub_soup.find_all("table"):
+                            for row in table.find_all("tr")[1:]:
+                                cells = row.find_all(["td", "th"])
+                                prop = self._parse_delinquent_row(cells, "Harris")
+                                if prop:
+                                    prop["city"] = prop.get("city") or "Houston"
+                                    properties.append(prop)
+
+        logger.info(f"Harris County tax scraper found {len(properties)} properties")
         return properties
 
     async def _scrape_bexar_cad(self) -> list[dict]:
