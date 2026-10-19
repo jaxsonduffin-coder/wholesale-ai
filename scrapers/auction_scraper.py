@@ -24,6 +24,9 @@ class AuctionDotComScraper(BaseScraper):
             "El Paso", "Arlington", "Corpus Christi", "Plano", "Laredo",
             "Lubbock", "Garland", "Irving", "Amarillo", "Grand Prairie",
             "Brownsville", "McKinney", "Frisco", "Pasadena", "Mesquite",
+            "Killeen", "Waco", "Midland", "Odessa", "Beaumont",
+            "Tyler", "Round Rock", "Sugar Land", "Conroe", "Pearland",
+            "Denton", "Wichita Falls", "San Angelo", "Galveston",
         ]
         all_props = []
         for city in cities:
@@ -330,6 +333,22 @@ class CodeViolationScraper(BaseScraper):
         "Frisco": "https://www.friscotexas.gov/141/Code-Enforcement",
         "Pasadena": "https://www.ci.pasadena.tx.us/code-enforcement",
         "Mesquite": "https://www.cityofmesquite.com/289/Code-Enforcement",
+        # Additional cities
+        "Killeen": "https://www.killeentexas.gov/departments/code-compliance",
+        "Waco": "https://www.waco-texas.com/code-enforcement",
+        "Midland": "https://www.midlandtexas.gov/272/Code-Enforcement",
+        "Odessa": "https://www.odessa-tx.gov/304/Code-Enforcement",
+        "Beaumont": "https://www.beaumonttexas.gov/code-enforcement",
+        "Tyler": "https://www.tylertexas.com/departments/code-enforcement",
+        "Round Rock": "https://www.roundrocktexas.gov/departments/code-compliance/",
+        "Sugar Land": "https://www.sugarlandtx.gov/171/Code-Enforcement",
+        "Conroe": "https://www.cityofconroe.org/departments/code-enforcement",
+        "San Marcos": "https://www.sanmarcostx.gov/301/Code-Enforcement",
+        "Denton": "https://www.cityofdenton.com/en-us/residents/code-enforcement",
+        "Wichita Falls": "https://www.wichitafallstx.gov/191/Code-Enforcement",
+        "San Angelo": "https://www.cosatx.us/departments-services/code-compliance",
+        "Galveston": "https://www.galvestontx.gov/code-compliance",
+        "Pearland": "https://www.pearlandtx.gov/departments/code-enforcement",
     }
 
     async def scrape(self, cities: list[str] = None) -> list[dict]:

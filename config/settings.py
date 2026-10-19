@@ -20,10 +20,15 @@ class BuyBox:
     ])
     target_states: list = field(default_factory=lambda: ["TX"])
     target_counties: list = field(default_factory=lambda: [
+        # Top 17 original
         "Harris", "Bexar", "Dallas", "Tarrant", "Travis",
         "El Paso", "Hidalgo", "Fort Bend", "Collin", "Denton",
         "Williamson", "Montgomery", "Brazoria", "Nueces", "Cameron",
         "Webb", "Lubbock",
+        # Additional high-population counties
+        "Galveston", "Jefferson", "McLennan", "Bell", "Midland",
+        "Ector", "Smith", "Hays", "Guadalupe", "Potter",
+        "Tom Green", "Wichita",
     ])
 
 # ── Database ──────────────────────────────────────────────────────

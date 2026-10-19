@@ -167,6 +167,12 @@ class CraigslistScraper(BaseScraper):
         "galveston": "https://galveston.craigslist.org",
         "collegestation": "https://collegestation.craigslist.org",
         "sanmarcos": "https://sanmarcos.craigslist.org",
+        "wichitafalls": "https://wichitafalls.craigslist.org",
+        "sanangelo": "https://sanangelo.craigslist.org",
+        "victoriatx": "https://victoriatx.craigslist.org",
+        "abilene": "https://abilene.craigslist.org",
+        "texoma": "https://texoma.craigslist.org",
+        "nacogdoches": "https://nacogdoches.craigslist.org",
     }
 
     # Keywords that signal motivated sellers

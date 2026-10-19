@@ -5,6 +5,7 @@ Runs on a loop with configurable intervals.
 """
 import asyncio
 import logging
+import random
 import smtplib
 from datetime import datetime, timedelta
 from email.mime.text import MIMEText
@@ -54,8 +55,16 @@ class WholesalePipeline:
         self.vapi_assistant_es = None
 
     async def run_forever(self):
-        """Main loop — runs the full pipeline on a schedule."""
-        logger.info("🚀 Wholesale AI Pipeline starting...")
+        """
+        Continuous pipeline — always finding leads.
+
+        Schedule:
+        - Every 1 hour: Craigslist + Pre-foreclosure (fast, rarely block)
+        - Every 2 hours: County tax records + Code violations
+        - Every 4 hours: Zillow FSBO, Auction.com, HUD, HomePath, Freddie, Probate
+        - Every cycle: Skip trace, analyze, outreach, drips (process whatever's new)
+        """
+        logger.info("🚀 Wholesale AI Pipeline starting (continuous mode)...")
         init_db()
         logger.info("✅ Database initialized")
 
@@ -64,131 +73,52 @@ class WholesalePipeline:
             self.vapi_assistant_en = await self.voice_agent.create_assistant("en")
             self.vapi_assistant_es = await self.voice_agent.create_assistant("es")
 
+        cycle_count = 0
+
         while True:
             try:
-                logger.info("━━━ Pipeline cycle starting ━━━")
+                cycle_count += 1
+                logger.info(f"━━━ Pipeline cycle #{cycle_count} starting ━━━")
 
-                # Phase 1: Scrape new leads
-                await self.phase_scrape()
+                # ── Scraping tiers — stagger to avoid detection ──
 
-                # Phase 2: Skip trace — find contact info
+                # TIER 1: Every cycle (hourly) — fast, bot-friendly sources
+                logger.info("🔍 Tier 1: Craigslist + Pre-foreclosure...")
+                await self.phase_scrape_tier1()
+
+                # TIER 2: Every cycle — county records (user wants max county data)
+                logger.info("🔍 Tier 2: County tax records + Code violations...")
+                await self.phase_scrape_tier2()
+
+                # TIER 3: Every 4 cycles (~4 hours) — sites that block more aggressively
+                if cycle_count % 4 == 0:
+                    logger.info("🔍 Tier 3: Zillow, Auction, HUD, HomePath, Freddie, Probate...")
+                    await self.phase_scrape_tier3()
+
+                # ── Always process whatever leads we have ──
                 await self.phase_skip_trace()
-
-                # Phase 3: Analyze deals
                 await self.phase_analyze()
-
-                # Phase 4: Outreach — SMS, email, voice
                 await self.phase_outreach()
-
-                # Phase 5: Process responses and send contracts
                 await self.phase_process_responses()
-
-                # Phase 6: Send pending SMS/email drips
                 await self.phase_drip_campaigns()
 
-                logger.info("━━━ Pipeline cycle complete ━━━")
-                logger.info("Next cycle in 6 hours...")
-                await asyncio.sleep(6 * 3600)  # Run every 6 hours
+                logger.info(f"━━━ Cycle #{cycle_count} complete ━━━")
+                # Wait 1 hour between cycles
+                wait = 3600 + random.randint(0, 300)  # 60-65 min (random to avoid patterns)
+                logger.info(f"Next cycle in ~{wait // 60} minutes...")
+                await asyncio.sleep(wait)
 
             except Exception as e:
                 logger.error(f"Pipeline error: {e}", exc_info=True)
                 await asyncio.sleep(300)  # Wait 5 min on error
 
-    # ── Phase 1: Scrape ──────────────────────────────────────────
+    # ── Scraping (tiered for stealth + continuous leads) ───────────
 
-    async def phase_scrape(self):
-        """Scrape ALL sources for new leads — runs concurrently for speed."""
-        logger.info("📡 Phase 1: Scraping leads (all counties, all sources, concurrent)...")
+    def _save_properties(self, all_properties: list[dict]) -> int:
+        """Save scraped properties to database, skip duplicates. Returns count saved."""
         db = SessionLocal()
-
+        new_count = 0
         try:
-            all_counties = settings.buy_box.target_counties  # ALL counties, no limit
-
-            # ── Helper coroutines for each scraper ──
-            async def run_tax_scraper():
-                async with TexasTaxScraper(counties=all_counties) as s:
-                    return await s.scrape()
-
-            async def run_zillow():
-                cities = [
-                    "Houston-TX", "San-Antonio-TX", "Dallas-TX", "Fort-Worth-TX",
-                    "Austin-TX", "El-Paso-TX", "Arlington-TX", "Corpus-Christi-TX",
-                    "Plano-TX", "Laredo-TX", "Lubbock-TX", "Garland-TX",
-                    "Irving-TX", "Amarillo-TX", "Grand-Prairie-TX",
-                    "Brownsville-TX", "McKinney-TX", "Frisco-TX",
-                    "Pasadena-TX", "Mesquite-TX", "McAllen-TX",
-                    "Round-Rock-TX", "Sugar-Land-TX", "Denton-TX",
-                    "Killeen-TX", "Midland-TX", "Odessa-TX",
-                    "Beaumont-TX", "Conroe-TX", "Pearland-TX",
-                ]
-                async with ZillowFSBOScraper() as s:
-                    return await s.scrape(cities=cities)
-
-            async def run_craigslist():
-                async with CraigslistScraper() as s:
-                    return await s.scrape()
-
-            async def run_preforeclosure():
-                async with PreForeclosureScraper() as s:
-                    return await s.scrape(counties=all_counties)
-
-            async def run_auction():
-                async with AuctionDotComScraper() as s:
-                    return await s.scrape()
-
-            async def run_hud():
-                async with HUDHomesScraper() as s:
-                    return await s.scrape()
-
-            async def run_probate():
-                async with ProbateScraper() as s:
-                    return await s.scrape(counties=all_counties)
-
-            async def run_code_violations():
-                async with CodeViolationScraper() as s:
-                    return await s.scrape()
-
-            async def run_homepath():
-                async with HomepathScraper() as s:
-                    return await s.scrape()
-
-            async def run_freddiemac():
-                async with FreddieMacScraper() as s:
-                    return await s.scrape()
-
-            # ── Run ALL scrapers concurrently ──
-            results = await asyncio.gather(
-                run_tax_scraper(),
-                run_zillow(),
-                run_craigslist(),
-                run_preforeclosure(),
-                run_auction(),
-                run_hud(),
-                run_probate(),
-                run_code_violations(),
-                run_homepath(),
-                run_freddiemac(),
-                return_exceptions=True,
-            )
-
-            scraper_names = [
-                "Tax delinquent", "Zillow FSBO", "Craigslist", "Pre-foreclosure",
-                "Auction.com", "HUD Homes", "Probate", "Code violations",
-                "HomePath", "HomeSteps",
-            ]
-
-            all_properties = []
-            for name, result in zip(scraper_names, results):
-                if isinstance(result, Exception):
-                    logger.error(f"{name} scraper failed: {result}")
-                elif isinstance(result, list):
-                    all_properties.extend(result)
-                    logger.info(f"{name}: {len(result)} properties")
-                else:
-                    logger.warning(f"{name}: unexpected result type")
-
-            # Save to database (skip duplicates by parcel_id)
-            new_count = 0
             for prop_data in all_properties:
                 parcel_id = prop_data.get("parcel_id")
                 if parcel_id:
@@ -196,8 +126,19 @@ class WholesalePipeline:
                     if existing:
                         continue
 
+                # Also dedupe by address
+                street = prop_data.get("street", "").strip()
+                if street:
+                    existing = db.query(Property).filter_by(
+                        street=street,
+                        city=prop_data.get("city", ""),
+                        state=prop_data.get("state", "TX"),
+                    ).first()
+                    if existing:
+                        continue
+
                 prop = Property(
-                    street=prop_data.get("street", ""),
+                    street=street,
                     city=prop_data.get("city", ""),
                     county=prop_data.get("county", ""),
                     state=prop_data.get("state", "TX"),
@@ -221,9 +162,8 @@ class WholesalePipeline:
                 )
                 db.add(prop)
 
-                # Add owner if we have a name
                 if prop_data.get("owner_name"):
-                    db.flush()  # Get prop.id
+                    db.flush()
                     owner = Owner(
                         property_id=prop.id,
                         full_name=prop_data["owner_name"],
@@ -234,13 +174,127 @@ class WholesalePipeline:
                 new_count += 1
 
             db.commit()
-            logger.info(f"✅ Saved {new_count} new properties (from {len(all_properties)} scraped)")
-
         except Exception as e:
-            logger.error(f"Scrape phase error: {e}", exc_info=True)
+            logger.error(f"Save error: {e}", exc_info=True)
             db.rollback()
         finally:
             db.close()
+        return new_count
+
+    async def _run_scrapers(self, scrapers: dict) -> list[dict]:
+        """Run a dict of {name: coroutine} scrapers concurrently, return all properties."""
+        results = await asyncio.gather(
+            *scrapers.values(), return_exceptions=True
+        )
+        all_properties = []
+        for name, result in zip(scrapers.keys(), results):
+            if isinstance(result, Exception):
+                logger.error(f"{name} scraper failed: {result}")
+            elif isinstance(result, list):
+                all_properties.extend(result)
+                logger.info(f"  {name}: {len(result)} properties")
+        return all_properties
+
+    async def phase_scrape(self):
+        """Full scrape — all tiers at once. Used by manual trigger."""
+        logger.info("📡 Full scrape (all sources)...")
+        await self.phase_scrape_tier1()
+        await self.phase_scrape_tier2()
+        await self.phase_scrape_tier3()
+
+    async def phase_scrape_tier1(self):
+        """TIER 1 (hourly): Craigslist + Pre-foreclosure — fast, rarely blocks."""
+        all_counties = settings.buy_box.target_counties
+
+        async def run_craigslist():
+            async with CraigslistScraper() as s:
+                return await s.scrape()
+
+        async def run_preforeclosure():
+            async with PreForeclosureScraper() as s:
+                return await s.scrape(counties=all_counties)
+
+        props = await self._run_scrapers({
+            "Craigslist": run_craigslist(),
+            "Pre-foreclosure": run_preforeclosure(),
+        })
+        saved = self._save_properties(props)
+        logger.info(f"✅ Tier 1: Saved {saved} new leads (from {len(props)} scraped)")
+
+    async def phase_scrape_tier2(self):
+        """TIER 2 (every 2 hours): County tax records + code violations."""
+        all_counties = settings.buy_box.target_counties
+
+        async def run_tax():
+            async with TexasTaxScraper(counties=all_counties) as s:
+                return await s.scrape()
+
+        async def run_code_violations():
+            async with CodeViolationScraper() as s:
+                return await s.scrape()
+
+        props = await self._run_scrapers({
+            "Tax delinquent": run_tax(),
+            "Code violations": run_code_violations(),
+        })
+        saved = self._save_properties(props)
+        logger.info(f"✅ Tier 2: Saved {saved} new leads (from {len(props)} scraped)")
+
+    async def phase_scrape_tier3(self):
+        """TIER 3 (every 4 hours): Zillow, Auction, HUD, HomePath, Freddie, Probate."""
+        all_counties = settings.buy_box.target_counties
+
+        async def run_zillow():
+            # Randomize city order each time to spread the load
+            cities = [
+                "Houston-TX", "San-Antonio-TX", "Dallas-TX", "Fort-Worth-TX",
+                "Austin-TX", "El-Paso-TX", "Arlington-TX", "Corpus-Christi-TX",
+                "Plano-TX", "Laredo-TX", "Lubbock-TX", "Garland-TX",
+                "Irving-TX", "Amarillo-TX", "Grand-Prairie-TX",
+                "Brownsville-TX", "McKinney-TX", "Frisco-TX",
+                "Pasadena-TX", "Mesquite-TX", "McAllen-TX",
+                "Round-Rock-TX", "Sugar-Land-TX", "Denton-TX",
+                "Killeen-TX", "Midland-TX", "Odessa-TX",
+                "Beaumont-TX", "Conroe-TX", "Pearland-TX",
+                "Waco-TX", "Tyler-TX", "Wichita-Falls-TX",
+                "San-Angelo-TX", "Galveston-TX", "San-Marcos-TX",
+                "Temple-TX", "Abilene-TX", "Lewisville-TX",
+                "Allen-TX", "Edinburg-TX", "Pflugerville-TX",
+            ]
+            random.shuffle(cities)
+            async with ZillowFSBOScraper() as s:
+                return await s.scrape(cities=cities)
+
+        async def run_auction():
+            async with AuctionDotComScraper() as s:
+                return await s.scrape()
+
+        async def run_hud():
+            async with HUDHomesScraper() as s:
+                return await s.scrape()
+
+        async def run_probate():
+            async with ProbateScraper() as s:
+                return await s.scrape(counties=all_counties)
+
+        async def run_homepath():
+            async with HomepathScraper() as s:
+                return await s.scrape()
+
+        async def run_freddiemac():
+            async with FreddieMacScraper() as s:
+                return await s.scrape()
+
+        props = await self._run_scrapers({
+            "Zillow FSBO": run_zillow(),
+            "Auction.com": run_auction(),
+            "HUD Homes": run_hud(),
+            "Probate": run_probate(),
+            "HomePath": run_homepath(),
+            "HomeSteps": run_freddiemac(),
+        })
+        saved = self._save_properties(props)
+        logger.info(f"✅ Tier 3: Saved {saved} new leads (from {len(props)} scraped)")
 
     # ── Phase 2: Skip Trace ──────────────────────────────────────
 

@@ -158,6 +158,98 @@ TEXAS_CAD_URLS = {
                  "79412", "79413", "79414", "79415", "79416", "79423",
                  "79424"],
     },
+    # ── Additional high-population counties ──
+    "Galveston": {
+        "search": "https://www.galvestoncad.org/",
+        "name": "Galveston Central Appraisal District",
+        "platform": "galvestoncad",
+        "city": "Galveston",
+        "zips": ["77550", "77551", "77554", "77563", "77565", "77568",
+                 "77573", "77590", "77591", "77592"],
+    },
+    "Jefferson": {
+        "search": "https://www.jcad.org/",
+        "name": "Jefferson County Appraisal District",
+        "platform": "jcad",
+        "city": "Beaumont",
+        "zips": ["77701", "77702", "77703", "77705", "77706", "77707",
+                 "77708", "77713", "77640", "77642", "77651"],
+    },
+    "McLennan": {
+        "search": "https://www.mclennancad.org/",
+        "name": "McLennan County Appraisal District",
+        "platform": "mclennancad",
+        "city": "Waco",
+        "zips": ["76701", "76704", "76705", "76706", "76707", "76708",
+                 "76710", "76711", "76712"],
+    },
+    "Bell": {
+        "search": "https://www.bellcad.org/",
+        "name": "Bell County Appraisal District",
+        "platform": "bellcad",
+        "city": "Killeen",
+        "zips": ["76541", "76542", "76543", "76544", "76549", "76502",
+                 "76504", "76513"],
+    },
+    "Midland": {
+        "search": "https://www.midcad.org/",
+        "name": "Midland Central Appraisal District",
+        "platform": "midcad",
+        "city": "Midland",
+        "zips": ["79701", "79703", "79705", "79706", "79707"],
+    },
+    "Ector": {
+        "search": "https://www.ectorcad.org/",
+        "name": "Ector County Appraisal District",
+        "platform": "ectorcad",
+        "city": "Odessa",
+        "zips": ["79761", "79762", "79763", "79764", "79765", "79766"],
+    },
+    "Smith": {
+        "search": "https://www.smithcad.org/",
+        "name": "Smith County Appraisal District",
+        "platform": "smithcad",
+        "city": "Tyler",
+        "zips": ["75701", "75702", "75703", "75704", "75706", "75707",
+                 "75708", "75709"],
+    },
+    "Hays": {
+        "search": "https://www.hayscad.com/",
+        "name": "Hays Central Appraisal District",
+        "platform": "hayscad",
+        "city": "San Marcos",
+        "zips": ["78666", "78640", "78610", "78620", "78676"],
+    },
+    "Guadalupe": {
+        "search": "https://www.guadalupead.org/",
+        "name": "Guadalupe Appraisal District",
+        "platform": "guadalupead",
+        "city": "Seguin",
+        "zips": ["78155", "78130", "78108", "78132"],
+    },
+    "Potter": {
+        "search": "https://www.pottercad.org/",
+        "name": "Potter County Appraisal District",
+        "platform": "pottercad",
+        "city": "Amarillo",
+        "zips": ["79101", "79102", "79103", "79104", "79106", "79107",
+                 "79108", "79109", "79110", "79118", "79119", "79121"],
+    },
+    "Tom Green": {
+        "search": "https://www.tgcad.org/",
+        "name": "Tom Green County Appraisal District",
+        "platform": "tgcad",
+        "city": "San Angelo",
+        "zips": ["76901", "76903", "76904", "76905"],
+    },
+    "Wichita": {
+        "search": "https://www.wichitaad.org/",
+        "name": "Wichita Appraisal District",
+        "platform": "wichitaad",
+        "city": "Wichita Falls",
+        "zips": ["76301", "76302", "76305", "76306", "76308", "76309",
+                 "76310", "76311"],
+    },
 }
 
 
@@ -200,20 +292,93 @@ class TexasTaxScraper(BaseScraper):
 
         return properties
 
+    # Real county tax sale / delinquent list URLs that actually exist
+    KNOWN_TAX_SALE_URLS = {
+        "Harris": [
+            "https://www.hctax.net/Property/TaxSales",
+            "https://www.hctax.net/Property/DelinquentList",
+        ],
+        "Dallas": [
+            "https://www.dallascounty.org/departments/tax/delinquent-tax-sales.php",
+        ],
+        "Tarrant": [
+            "https://www.tarrantcounty.com/en/tax/tax-sale.html",
+        ],
+        "Bexar": [
+            "https://www.bexar.org/1505/Tax-Sales",
+        ],
+        "Travis": [
+            "https://tax-office.traviscountytx.gov/delinquent-tax-sales",
+        ],
+        "Fort Bend": [
+            "https://www.fortbendcountytx.gov/government/departments-a-h/county-tax-assessor-collector/delinquent-tax-sale",
+        ],
+        "Collin": [
+            "https://www.collincountytx.gov/tax_assessor/Pages/tax-sales.aspx",
+        ],
+        "Montgomery": [
+            "https://www.mctx.org/departments/departments_a_-_d/county_tax_assessor_collector/delinquent_tax_sale.php",
+        ],
+        "Williamson": [
+            "https://www.wilco.org/Departments/Tax-Assessor-Collector/Tax-Sales",
+        ],
+        "Denton": [
+            "https://dentoncounty.gov/Departments/Tax-Assessor-Collector/Tax-Sales",
+        ],
+        "Nueces": [
+            "https://www.nuecesco.com/county-services/tax-assessor-collector/tax-sales",
+        ],
+        "El Paso": [
+            "https://www.epcounty.com/taxoffice/taxsales.htm",
+        ],
+        "Hidalgo": [
+            "https://www.hidalgocounty.us/197/Tax-Sales",
+        ],
+        "Brazoria": [
+            "https://www.brazoriacountytx.gov/departments/tax-assessor-collector/tax-sales",
+        ],
+        "Galveston": [
+            "https://www.galvestoncountytx.gov/our-county/tax-office/tax-sales",
+        ],
+        "Jefferson": [
+            "https://www.co.jefferson.tx.us/taxoffice/tax_sales.htm",
+        ],
+        "McLennan": [
+            "https://www.mclennancountytx.gov/285/Tax-Sales",
+        ],
+        "Bell": [
+            "https://www.bellcountytx.com/county_government/tax_assessor/tax_sale.php",
+        ],
+        "Lubbock": [
+            "https://www.lubbockcounty.gov/government/tax-assessor-collector/tax-sale",
+        ],
+        "Webb": [
+            "https://www.webbcountytx.gov/TaxAssessor/TaxSales/",
+        ],
+    }
+
     async def _scrape_delinquent_list(self, county: str) -> list[dict]:
         """
         Scrape the county's delinquent tax list.
         Most Texas counties publish these on their tax assessor-collector website.
+        Uses known URLs first, then falls back to common patterns.
         """
         properties = []
 
-        # Common URL patterns for Texas county delinquent lists
+        # Use known real URLs first
+        known_urls = self.KNOWN_TAX_SALE_URLS.get(county, [])
+
+        # Fallback URL patterns for counties not in the known list
         slug = county.lower().replace(" ", "")
-        delinquent_urls = [
+        fallback_urls = [
             f"https://www.{slug}countytx.gov/tax-sales",
             f"https://www.{slug}county.org/delinquent-taxes",
             f"https://tax.{slug}countytx.gov/delinquent",
+            f"https://www.co.{slug}.tx.us/taxoffice/tax_sales.htm",
+            f"https://www.{slug}countytx.gov/government/departments/tax-assessor-collector/tax-sales",
         ]
+
+        delinquent_urls = known_urls + fallback_urls
 
         for url in delinquent_urls:
             html = await self.fetch(url)
@@ -310,7 +475,7 @@ class TexasTaxScraper(BaseScraper):
             properties.extend(ta_props)
 
         # Also try zip code searches for counties that have them
-        for zip_code in zips[:10]:  # First 10 zips per county
+        for zip_code in zips:
             params = {"ZipCode": zip_code, "zipcode": zip_code, "zip": zip_code}
             html = await self.fetch(search_url, params=params)
             if not html:
@@ -355,7 +520,7 @@ class TexasTaxScraper(BaseScraper):
             "77056", "77057", "77058", "77059", "77060", "77061", "77062",
         ]
 
-        for zip_code in houston_zips[:10]:  # Start with first 10 zips
+        for zip_code in houston_zips:
             url = f"https://public.hcad.org/records/quicksearch.asp"
             html = await self.fetch(url, params={"search_type": "zip", "search_value": zip_code})
             if not html:
@@ -379,7 +544,7 @@ class TexasTaxScraper(BaseScraper):
                    "78207", "78208", "78210", "78211", "78212",
                    "78213", "78214", "78215", "78216", "78217"]
 
-        for zip_code in sa_zips[:10]:
+        for zip_code in sa_zips:
             url = "https://bexar.trueautomation.com/clientdb/PropertySearch.aspx"
             html = await self.fetch(url, params={"ZipCode": zip_code})
             if html:
@@ -395,7 +560,7 @@ class TexasTaxScraper(BaseScraper):
                        "75206", "75207", "75208", "75209", "75210",
                        "75211", "75212", "75214", "75215", "75216"]
 
-        for zip_code in dallas_zips[:10]:
+        for zip_code in dallas_zips:
             url = f"https://www.dallascad.org/SearchAddr.aspx"
             html = await self.fetch(url, params={"zipcode": zip_code})
             if html:
