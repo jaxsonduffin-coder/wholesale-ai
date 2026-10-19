@@ -156,7 +156,10 @@ async def dashboard_stats(db: Session = Depends(get_db)):
 
 @app.get("/api/activity")
 async def recent_activity(limit: int = 20, db: Session = Depends(get_db)):
-    """Live activity feed — recent contacts, deals, events."""
+    """Live activity feed — recent contacts, deals, AND new leads."""
+    activities = []
+
+    # Recent outreach (ContactLog)
     contacts = (
         db.query(ContactLog)
         .join(Property)
@@ -164,7 +167,6 @@ async def recent_activity(limit: int = 20, db: Session = Depends(get_db)):
         .limit(limit)
         .all()
     )
-    activities = []
     for c in contacts:
         icon = {"sms": "💬", "email": "📧", "voice": "📞"}.get(c.method, "📌")
         lang = f" ({c.language.upper()})" if c.language == "es" else ""
@@ -175,8 +177,39 @@ async def recent_activity(limit: int = 20, db: Session = Depends(get_db)):
             "text": f"{icon} {c.method.upper()}{lang} → {addr}",
             "detail": status,
             "time": c.created_at.isoformat() if c.created_at else None,
+            "sort_time": c.created_at,
         })
-    return activities
+
+    # Recent leads (Property) — so the feed isn't empty before outreach starts
+    recent_leads = (
+        db.query(Property)
+        .order_by(Property.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    for p in recent_leads:
+        source = (p.source or "scraper").replace("_", " ").title()
+        flags = []
+        if p.tax_delinquent:
+            flags.append("Tax Delinquent")
+        if p.pre_foreclosure:
+            flags.append("Pre-Foreclosure")
+        if p.vacant:
+            flags.append("Vacant")
+        flag_str = f" ({', '.join(flags)})" if flags else ""
+        activities.append({
+            "icon": "🏠",
+            "text": f"🏠 New Lead: {p.street}, {p.city}{flag_str}",
+            "detail": source,
+            "time": p.created_at.isoformat() if p.created_at else None,
+            "sort_time": p.created_at,
+        })
+
+    # Sort by time descending, take top N
+    activities.sort(key=lambda a: a.get("sort_time") or datetime.min, reverse=True)
+    for a in activities:
+        a.pop("sort_time", None)
+    return activities[:limit]
 
 
 @app.get("/api/deals")
