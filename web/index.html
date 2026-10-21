@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#06060f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Wholesale AI</title>
+<link rel="manifest" href="/manifest.json">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#06060f; --bg2:#0d0d1a; --card:#12122a; --card2:#181840;
+  --border:#1e1e3a; --accent:#00e5a0; --accent2:#6366f1; --accent3:#f472b6;
+  --text:#e8eaed; --text2:#9ca3af; --muted:#6b7280;
+  --danger:#ef4444; --warn:#f59e0b; --ok:#22c55e; --info:#22d3ee;
+  --radius:14px; --nav-h:64px;
+}
+body{
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  background:var(--bg);color:var(--text);min-height:100dvh;
+  padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom));
+  -webkit-font-smoothing:antialiased;font-size:15px;
+}
+a{color:var(--accent);text-decoration:none}
+button,input,select,textarea{font-family:inherit;font-size:1rem}
+
+/* ── Login ─────────────────────────────── */
+#login{
+  position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(circle at 30% 20%,#12122a,#06060f 70%);z-index:200;padding:24px;
+}
+#login .box{width:100%;max-width:380px}
+#login .mark{
+  width:52px;height:52px;border-radius:14px;margin:0 auto 18px;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  display:flex;align-items:center;justify-content:center;
+  font-size:24px;font-weight:800;color:#000;
+}
+#login h1{font-size:1.4rem;text-align:center;margin-bottom:4px;letter-spacing:-.5px}
+#login p.sub{text-align:center;color:var(--muted);font-size:.8rem;margin-bottom:22px}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:.72rem;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:6px;font-weight:600}
+input,select,textarea{
+  width:100%;padding:12px 14px;background:var(--bg2);border:1px solid var(--border);
+  border-radius:10px;color:var(--text);outline:none;transition:border-color .15s;
+}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+textarea{resize:vertical;min-height:90px;line-height:1.5}
+.btn{
+  padding:12px 18px;border-radius:10px;border:1px solid var(--border);
+  background:var(--card2);color:var(--text);font-weight:600;cursor:pointer;
+  transition:filter .15s,opacity .15s;display:inline-flex;align-items:center;
+  justify-content:center;gap:6px;
+}
+.btn:hover{filter:brightness(1.25)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.primary{background:linear-gradient(135deg,var(--accent),#00b37e);color:#04140f;border:none}
+.btn.ghost{background:transparent}
+.btn.danger{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.4);color:#fca5a5}
+.btn.full{width:100%}
+
+/* ── Shell ─────────────────────────────── */
+header.top{
+  position:sticky;top:0;z-index:50;padding:14px 16px;
+  background:rgba(13,13,26,.92);backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;
+}
+.brand{display:flex;align-items:center;gap:10px}
+.brand .mark{
+  width:34px;height:34px;border-radius:10px;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  display:flex;align-items:center;justify-content:center;font-weight:800;color:#000;font-size:17px;
+}
+.brand h1{font-size:1.02rem;font-weight:700;letter-spacing:-.4px;line-height:1.1}
+.brand span{font-size:.6rem;color:var(--accent);text-transform:uppercase;letter-spacing:1.2px;font-weight:700}
+.live{display:flex;align-items:center;gap:6px;font-size:.68rem;color:var(--accent);font-weight:600}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse 2.2s infinite}
+.dot.dry{background:var(--warn);box-shadow:0 0 8px var(--warn)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+nav.tabs{
+  position:fixed;bottom:0;left:0;right:0;z-index:60;
+  background:var(--bg2);border-top:1px solid var(--border);
+  display:flex;padding:6px 0 calc(6px + env(safe-area-inset-bottom));
+}
+nav.tabs button{
+  flex:1;background:none;border:none;color:var(--muted);font-size:.6rem;
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:5px 0;cursor:pointer;font-weight:600;letter-spacing:.3px;
+}
+nav.tabs button .ic{font-size:1.15rem;line-height:1}
+nav.tabs button.on{color:var(--accent)}
+
+main{padding:16px;max-width:1100px;margin:0 auto}
+.page{display:none}
+.page.on{display:block;animation:fade .2s ease}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+/* ── Cards ─────────────────────────────── */
+.card{
+  background:linear-gradient(180deg,var(--card),#101024);
+  border:1px solid var(--border);border-radius:var(--radius);
+  padding:16px;margin-bottom:12px;
+}
+.card-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px}
+.card-t{display:flex;align-items:center;gap:8px;font-size:.72rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:1px;color:var(--text2)}
+.pip{width:6px;height:6px;border-radius:50%}
+
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid4{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media(min-width:640px){.grid4{grid-template-columns:repeat(4,1fr)}}
+
+.stat{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px}
+.stat .n{font-size:1.6rem;font-weight:800;letter-spacing:-1px;line-height:1.1}
+.stat .l{font-size:.65rem;text-transform:uppercase;letter-spacing:.9px;color:var(--muted);margin-top:3px;font-weight:600}
+.stat .s{font-size:.68rem;color:var(--muted);margin-top:2px}
+
+/* funnel */
+.funnel-row{display:flex;align-items:center;gap:10px;margin-bottom:7px;font-size:.78rem}
+.funnel-bar{height:8px;border-radius:4px;min-width:3px;transition:width .4s ease}
+.funnel-lbl{flex:0 0 96px;color:var(--text2)}
+.funnel-n{flex:0 0 44px;text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+.funnel-p{flex:0 0 40px;text-align:right;color:var(--muted);font-size:.68rem;font-variant-numeric:tabular-nums}
+
+/* grades */
+.grade{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;
+  border-radius:8px;font-weight:800;font-size:.8rem;flex:0 0 auto}
+.grade.A{background:rgba(34,197,94,.16);color:#4ade80;border:1px solid rgba(34,197,94,.35)}
+.grade.B{background:rgba(99,102,241,.18);color:#a5b4fc;border:1px solid rgba(99,102,241,.4)}
+.grade.C{background:rgba(245,158,11,.14);color:#fbbf24;border:1px solid rgba(245,158,11,.3)}
+.grade.F{background:rgba(107,114,128,.14);color:#9ca3af;border:1px solid rgba(107,114,128,.3)}
+
+/* deal row */
+.deal{
+  display:flex;gap:12px;align-items:center;padding:13px 14px;background:var(--bg2);
+  border:1px solid var(--border);border-radius:12px;margin-bottom:8px;cursor:pointer;
+  transition:border-color .15s,background .15s;
+}
+.deal:hover{border-color:#2a2a52;background:var(--card2)}
+.deal .addr{font-weight:600;font-size:.88rem;margin-bottom:2px;line-height:1.25}
+.deal .meta{font-size:.7rem;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap}
+.deal .right{margin-left:auto;text-align:right;flex:0 0 auto}
+.deal .money{font-weight:700;font-size:.85rem;color:var(--accent);font-variant-numeric:tabular-nums}
+.deal .sub{font-size:.65rem;color:var(--muted)}
+
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.chip{
+  padding:6px 12px;border-radius:20px;background:var(--bg2);border:1px solid var(--border);
+  font-size:.72rem;font-weight:600;color:var(--text2);cursor:pointer;white-space:nowrap;
+}
+.chip.on{background:rgba(0,229,160,.12);border-color:rgba(0,229,160,.4);color:var(--accent)}
+
+.badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:.62rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:.6px}
+.badge.ok{background:rgba(34,197,94,.15);color:#4ade80}
+.badge.warn{background:rgba(245,158,11,.15);color:#fbbf24}
+.badge.bad{background:rgba(239,68,68,.15);color:#fca5a5}
+.badge.info{background:rgba(34,211,238,.15);color:#67e8f9}
+.badge.mute{background:rgba(107,114,128,.15);color:#9ca3af}
+
+.feed-item{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:.8rem}
+.feed-item:last-child{border-bottom:none}
+.feed-item .ic{flex:0 0 auto;font-size:1rem;line-height:1.3}
+.feed-item .tx{flex:1;min-width:0}
+.feed-item .tx b{font-weight:600;display:block;font-size:.8rem}
+.feed-item .tx small{color:var(--muted);font-size:.7rem;display:block;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.feed-item .tm{flex:0 0 auto;color:var(--muted);font-size:.65rem;white-space:nowrap}
+
+.kv{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid var(--border);font-size:.8rem}
+.kv:last-child{border-bottom:none}
+.kv .k{color:var(--muted)}
+.kv .v{font-weight:600;text-align:right;font-variant-numeric:tabular-nums}
+
+.tl{position:relative;padding-left:20px}
+.tl::before{content:'';position:absolute;left:5px;top:4px;bottom:4px;width:2px;background:var(--border)}
+.tl-item{position:relative;padding-bottom:16px}
+.tl-item::before{content:'';position:absolute;left:-19px;top:4px;width:10px;height:10px;
+  border-radius:50%;background:var(--card);border:2px solid var(--accent)}
+.tl-item.sms::before{border-color:var(--accent2)}
+.tl-item.email::before{border-color:var(--accent3)}
+.tl-item.note::before{border-color:var(--muted)}
+.tl-item .h{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text2)}
+.tl-item .b{font-size:.8rem;color:var(--text);margin-top:3px;white-space:pre-wrap;word-break:break-word}
+.tl-item .m{font-size:.65rem;color:var(--muted);margin-top:3px}
+
+.msg{padding:11px 14px;border-radius:10px;font-size:.8rem;margin-bottom:12px;line-height:1.45}
+.msg.err{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#fca5a5}
+.msg.ok{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:#86efac}
+.msg.warn{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);color:#fcd34d}
+.msg.info{background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.25);color:#a5f3fc}
+
+.modal-bg{position:fixed;inset:0;background:rgba(3,3,10,.78);backdrop-filter:blur(6px);
+  z-index:180;display:none;align-items:center;justify-content:center;padding:18px}
+.modal-bg.on{display:flex}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:16px;
+  padding:20px;width:100%;max-width:440px;max-height:90dvh;overflow-y:auto}
+.modal h3{font-size:1rem;margin-bottom:4px}
+.modal p.sub{font-size:.74rem;color:var(--muted);line-height:1.5;margin-bottom:16px}
+.radio{display:flex;gap:10px;align-items:flex-start;padding:10px;border:1px solid var(--border);
+  border-radius:10px;margin-bottom:8px;cursor:pointer;background:var(--bg2)}
+.radio.on{border-color:var(--accent);background:rgba(0,229,160,.07)}
+.radio input{margin-top:2px;flex:0 0 auto;width:auto}
+.radio .rl{font-size:.82rem;font-weight:600}
+.radio .rd{font-size:.7rem;color:var(--muted);line-height:1.45;margin-top:2px}
+.empty{text-align:center;padding:32px 16px;color:var(--muted);font-size:.82rem;line-height:1.6}
+.empty .big{font-size:1.8rem;margin-bottom:8px;opacity:.5}
+.skeleton{height:44px;border-radius:10px;background:linear-gradient(90deg,#12122a,#1a1a38,#12122a);
+  background-size:200% 100%;animation:sh 1.4s infinite;margin-bottom:8px}
+@keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.row>*{flex:1;min-width:120px}
+.spacer{height:8px}
+hr{border:none;border-top:1px solid var(--border);margin:14px 0}
+.hint{font-size:.72rem;color:var(--muted);line-height:1.5;margin-top:6px}
+h2.sec{font-size:.95rem;font-weight:700;margin:18px 0 10px;letter-spacing:-.3px}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.75rem}
+.scroll-x{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:.76rem}
+th{text-align:left;color:var(--muted);font-weight:600;font-size:.65rem;text-transform:uppercase;
+  letter-spacing:.7px;padding:6px 8px;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:7px 8px;border-bottom:1px solid var(--border);vertical-align:top}
+tr:last-child td{border-bottom:none}
+
+@media(min-width:900px){
+  nav.tabs{position:fixed;top:0;bottom:auto;left:0;width:190px;height:100dvh;
+    flex-direction:column;padding:74px 10px 10px;border-top:none;border-right:1px solid var(--border)}
+  nav.tabs button{flex:0 0 auto;flex-direction:row;justify-content:flex-start;gap:10px;
+    padding:11px 12px;font-size:.84rem;border-radius:10px;text-transform:none;letter-spacing:0}
+  nav.tabs button.on{background:rgba(0,229,160,.1)}
+  nav.tabs button .ic{font-size:1rem}
+  body{padding-bottom:0;padding-left:190px}
+  header.top{padding-left:206px}
+  main{padding:20px 24px}
+}
+</style>
+</head>
+<body>
+
+<!-- ── Login ─────────────────────────────────────────────── -->
+<div id="login">
+  <div class="box">
+    <div class="mark">W</div>
+    <h1>Wholesale AI</h1>
+    <p class="sub">Sign in to your deal pipeline</p>
+    <div id="login-err"></div>
+    <form id="login-form" autocomplete="on">
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" autocomplete="username" required>
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+      </div>
+      <button class="btn primary full" type="submit" id="login-btn">Sign in</button>
+    </form>
+    <p class="hint" style="text-align:center;margin-top:14px">
+      Credentials are set by ADMIN_EMAIL / ADMIN_PASSWORD on the server.
+    </p>
+  </div>
+</div>
+
+<!-- ── App ───────────────────────────────────────────────── -->
+<header class="top" id="top" style="display:none">
+  <div class="brand">
+    <div class="mark">W</div>
+    <div>
+      <h1>Wholesale AI</h1>
+      <span id="brand-sub">Loading…</span>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <button id="needs-pill" class="btn" style="padding:6px 12px;font-size:.74rem;display:none">
+      🔥 <span id="needs-count">0</span> need you
+    </button>
+    <div class="live"><span class="dot" id="live-dot"></span><span id="live-label">—</span></div>
+  </div>
+</header>
+
+<nav class="tabs" id="tabs" style="display:none">
+  <button data-page="needs"><span class="ic">🔥</span>Needs you</button>
+  <button data-page="dash" class="on"><span class="ic">◧</span>Dashboard</button>
+  <button data-page="deals"><span class="ic">▤</span>Deals</button>
+  <button data-page="cadence"><span class="ic">⇄</span>Cadence</button>
+  <button data-page="activity"><span class="ic">◔</span>Activity</button>
+  <button data-page="settings"><span class="ic">⚙</span>Settings</button>
+</nav>
+
+<main id="main" style="display:none">
+
+  <!-- Needs you -->
+  <section class="page" id="page-needs">
+    <div id="needs-alert"></div>
+    <div class="card" style="border-color:rgba(0,229,160,.3)">
+      <div class="card-t"><span class="pip" style="background:var(--accent)"></span>Only what needs a human</div>
+      <div class="hint" style="margin-top:8px">
+        A lead appears here when a seller says something that means "talk to me" —
+        asks the price, agrees to sell, or asks for a call. Everything else runs
+        without you. When they land here the numbers are done, the cadence is
+        paused, and the purchase agreement is already drafted.
+      </div>
+    </div>
+    <div id="needs-list"></div>
+  </section>
+
+  <!-- Dashboard -->
+  <section class="page on" id="page-dash">
+    <div id="dash-alert"></div>
+    <div class="card" id="dash-needs-card" style="display:none;border-color:rgba(0,229,160,.35)">
+      <div class="card-h">
+        <div class="card-t"><span class="pip" style="background:var(--accent)"></span>Sellers waiting on you</div>
+        <button class="btn primary" style="padding:5px 12px;font-size:.72rem" onclick="go('needs')">Open</button>
+      </div>
+      <div id="dash-needs"></div>
+    </div>
+    <div class="card">
+      <div class="card-h">
+        <div class="card-t"><span class="pip" style="background:var(--accent)"></span>AI Agents — Today</div>
+        <button class="btn ghost" id="run-btn" style="padding:6px 12px;font-size:.75rem">▶ Run now</button>
+      </div>
+      <div class="grid4" id="agents"></div>
+      <div class="hint" id="agents-hint" style="margin-top:10px"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-t"><span class="pip" style="background:var(--accent2)"></span>Pipeline</div>
+      <div id="funnel" style="margin-top:12px"></div>
+      <div class="hint" id="funnel-hint"></div>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <div class="card-t"><span class="pip" style="background:var(--ok)"></span>Grades</div>
+        <div id="grades" style="margin-top:10px"></div>
+      </div>
+      <div class="card">
+        <div class="card-t"><span class="pip" style="background:var(--accent3)"></span>Key metrics</div>
+        <div id="metrics" style="margin-top:10px"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-t"><span class="pip" style="background:var(--info)"></span>New leads — 7 days</div>
+      <div id="spark" style="margin-top:12px"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-h">
+        <div class="card-t"><span class="pip" style="background:var(--warn)"></span>Top opportunities</div>
+      </div>
+      <div id="top-deals"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-h">
+        <div class="card-t"><span class="pip" style="background:var(--muted)"></span>Recent activity</div>
+        <button class="btn ghost" style="padding:5px 10px;font-size:.7rem" onclick="go('activity')">All</button>
+      </div>
+      <div id="dash-feed"></div>
+    </div>
+  </section>
+
+  <!-- Deals -->
+  <section class="page" id="page-deals">
+    <div id="deals-alert"></div>
+    <div class="chips" id="grade-chips">
+      <div class="chip on" data-grade="">All</div>
+      <div class="chip" data-grade="A">A</div>
+      <div class="chip" data-grade="B">B</div>
+      <div class="chip" data-grade="C">C</div>
+      <div class="chip" data-grade="F">F</div>
+    </div>
+    <div class="row" style="margin-bottom:12px">
+      <button class="btn" id="add-lead-btn" style="font-size:.8rem">＋ Add lead</button>
+      <button class="btn" id="import-btn" style="font-size:.8rem">⬆ Import CSV</button>
+      <button class="btn ghost" id="rejected-btn" style="font-size:.8rem">🚫 Rejected</button>
+    </div>
+    <input type="file" id="csv-input" accept=".csv,text/csv" style="display:none">
+    <div id="deals-list"></div>
+  </section>
+
+  <!-- Deal detail -->
+  <section class="page" id="page-detail">
+    <button class="btn ghost" style="margin-bottom:12px;font-size:.78rem" onclick="go('deals')">← Back to deals</button>
+    <div id="detail"></div>
+  </section>
+
+  <!-- Cadence -->
+  <section class="page" id="page-cadence">
+    <div id="cadence-alert"></div>
+    <div class="card">
+      <div class="card-t"><span class="pip" style="background:var(--accent2)"></span>Sequences by lead class</div>
+      <div id="cadence-info" style="margin-top:10px"></div>
+    </div>
+    <div class="card">
+      <div class="card-t"><span class="pip" style="background:var(--warn)"></span>Channel policy — the compliance boundary</div>
+      <div id="policy-matrix" style="margin-top:12px"></div>
+      <div class="hint">SMS is locked to inbound leads with verified consent.
+        List and probate leads have no SMS step in their sequence at all, and the
+        sender refuses one even if an old cadence row contains it.</div>
+    </div>
+    <div class="card">
+      <div class="card-t"><span class="pip" style="background:var(--accent3)"></span>Mail queue</div>
+      <div class="card-h" style="margin-top:8px">
+        <span class="hint" style="margin:0">Letters are queued, not sent — print or export them.</span>
+        <button class="btn ghost" style="padding:5px 10px;font-size:.7rem" id="mail-export">⬇ CSV</button>
+      </div>
+      <div id="mail-queue" style="margin-top:10px"></div>
+    </div>
+    <h2 class="sec">Message templates</h2>
+    <p class="hint" style="margin-bottom:12px">
+      Placeholders: {first_name} {street} {city} {agent_name} {agent_phone}
+      {agent_company} {offer_low} {offer_high} {calendar_link}
+    </p>
+    <div id="templates"></div>
+  </section>
+
+  <!-- Activity -->
+  <section class="page" id="page-activity">
+    <div class="card">
+      <div class="card-h">
+        <div class="card-t"><span class="pip" style="background:var(--accent)"></span>Live activity</div>
+        <button class="btn ghost" style="padding:5px 10px;font-size:.7rem" onclick="loadActivity()">↻</button>
+      </div>
+      <div id="activity-list"></div>
+    </div>
+  </section>
+
+  <!-- Settings -->
+  <section class="page" id="page-settings">
+    <div class="card">
+      <div class="card-t"><span class="pip" style="background:var(--accent)"></span>Channel status</div>
+      <div id="caps" style="margin-top:12px"></div>
+      <div class="hint">
+        Anything in <b>dry-run</b> is logged but not actually sent. Add the matching
+        environment variables on Railway to go live.
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-t"><span class="pip" style="background:var(--accent2)"></span>Your identity in outreach</div>
+      <div id="identity" style="margin-top:12px"></div>
+    </div>
+    <div class="card">
+      <div class="card-t"><span class="pip" style="background:var(--warn)"></span>Compliance</div>
+      <div id="compliance" style="margin-top:12px"></div>
+      <div class="hint">
+        Quiet hours are enforced in the recipient's local timezone. Texas 9am–9pm,
+        Florida 8am–8pm, federal floor 8am–9pm. STOP/UNSUBSCRIBE replies
+        permanently suppress the number.
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-h">
+        <div class="card-t"><span class="pip" style="background:var(--danger)"></span>Suppression list</div>
+        <button class="btn ghost" style="padding:5px 10px;font-size:.7rem" onclick="loadSuppressions()">↻</button>
+      </div>
+      <div id="suppressions"></div>
+    </div>
+    <div class="card">
+      <div class="card-t"><span class="pip" style="background:var(--muted)"></span>Account</div>
+      <div style="margin-top:12px">
+        <div class="field"><label>Current password</label><input type="password" id="pw-cur"></div>
+        <div class="field"><label>New password (10+ chars)</label><input type="password" id="pw-new"></div>
+        <div class="row">
+          <button class="btn primary" id="pw-btn">Change password</button>
+          <button class="btn danger" id="logout-btn">Sign out</button>
+        </div>
+        <div id="pw-msg"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="modal-bg" id="import-modal">
+  <div class="modal">
+    <h3>Import leads</h3>
+    <p class="sub">The class you pick decides which channels these leads can ever receive.
+      Cold data can only be called or mailed — never texted.</p>
+
+    <div class="field">
+      <label>What kind of list is this?</label>
+      <div class="radio on" data-class="list">
+        <input type="radio" name="ic" value="list" checked>
+        <div><div class="rl">Purchased / pulled list</div>
+          <div class="rd">Absentee, tax delinquent, D4D. Calls and letters only.</div></div>
+      </div>
+      <div class="radio" data-class="probate">
+        <input type="radio" name="ic" value="probate">
+        <div><div class="rl">Probate / inherited</div>
+          <div class="rd">Letter first, then calls. No SMS.</div></div>
+      </div>
+      <div class="radio" data-class="referral">
+        <input type="radio" name="ic" value="referral">
+        <div><div class="rl">Referral</div>
+          <div class="rd">Warm introduction. Calls, email, letters. No SMS.</div></div>
+      </div>
+      <div class="radio" data-class="inbound">
+        <input type="radio" name="ic" value="inbound">
+        <div><div class="rl">Inbound (they contacted us)</div>
+          <div class="rd">The only class that may be texted — and only if the file
+            carries a consent source and timestamp.</div></div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Consent data in this file</label>
+      <select id="consent-policy">
+        <option value="none">Discard it — I have consent from the source (safest)</option>
+        <option value="column">Use the file's consent columns (inbound rows only)</option>
+      </select>
+      <div class="hint">A purchased list cannot carry SMS consent for you.
+        Leaving this on "discard" means nothing in this import will be texted.</div>
+    </div>
+
+    <div class="row" style="margin-top:14px">
+      <button class="btn ghost" id="import-cancel">Cancel</button>
+      <button class="btn primary" id="import-go">Choose file</button>
+    </div>
+    <div id="import-modal-msg"></div>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
