@@ -64,6 +64,15 @@ class Settings:
         # Public URL of your seller landing page, used in copy and alerts.
         self.public_form_url: str = g("PUBLIC_FORM_URL", "")
 
+        # --- PropRaven (property data + absentee lead feed) ----------
+        self.propraven_api_key: str = g("PROPRAVEN_API_KEY", "")
+        self.propraven_base_url: str = g("PROPRAVEN_BASE_URL", "https://propraven.com/api/v1")
+        # Which deal feed to pull: /deals/absentee, /deals/high-equity, ...
+        self.propraven_deals_endpoint: str = g("PROPRAVEN_DEALS_ENDPOINT", "/deals/absentee")
+        self.propraven_page_size: int = int(g("PROPRAVEN_PAGE_SIZE", "100") or 100)
+        # Optional county-FIPS overrides: "TX:Houston=48201;FL:Tampa=12057"
+        self.propraven_county_fips: str = g("PROPRAVEN_COUNTY_FIPS", "")
+
         self.lead_provider: str = g("LEAD_PROVIDER", "demo").strip().lower()
         self.batchdata_api_key: str = g("BATCHDATA_API_KEY", "")
 
@@ -97,7 +106,10 @@ class Settings:
             "sms": {"live": self.sms_live, "provider": "telnyx"},
             "voice": {"live": self.voice_live, "provider": "telnyx"},
             "email": {"live": self.email_live, "provider": self.email_provider or "dry_run"},
-            "leads": {"live": self.lead_provider in ("batchdata",), "provider": self.lead_provider},
+            "leads": {
+                "live": self.lead_provider in ("batchdata", "propraven"),
+                "provider": self.lead_provider,
+            },
             "dnc": {"live": self.dnc_provider == "live", "provider": self.dnc_provider},
             "markets": {"live": True, "provider": ",".join(self.market_states)},
         }
