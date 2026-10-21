@@ -327,6 +327,10 @@ class DemoProvider(LeadProvider):
 
 def get_provider(name: str | None = None) -> LeadProvider:
     name = (name or settings.lead_provider or "demo").lower()
+    if name == "propraven":
+        from .propraven import PropRavenProvider
+
+        return PropRavenProvider()
     if name == "batchdata":
         return BatchDataProvider()
     if name == "csv":
