@@ -389,6 +389,40 @@ authenticate now.
 
 ## Lead sources
 
+### PropRaven (recommended)
+
+`LEAD_PROVIDER=propraven` with `PROPRAVEN_API_KEY`. 191M US parcels, absentee
+deal feeds, and the field names already mapped into this system.
+
+```
+PROPRAVEN_API_KEY=pz_...
+PROPRAVEN_DEALS_ENDPOINT=/deals/absentee
+PROPRAVEN_PAGE_SIZE=100
+```
+
+**Billing is metered in lookups, not leads.** Free = 1,000/month (~33/day),
+Developer = 100,000/month for $99. A free key is a build-and-validate tier; at
+1,000 outreach touches a day you need Developer.
+
+The adapter is quota-aware: it pages with `limit`/`offset`, stops on a short
+page, never asks for more rows than `limit`, and halts when the
+`X-RateLimit-Remaining` header runs low. It does not spend lookups it does not
+need.
+
+Verify a key before wiring it in — this calls three endpoints and nothing else:
+
+```bash
+PROPRAVEN_API_KEY=pz_... python3 scripts/propraven_probe.py TX Dallas
+```
+
+Quota is surfaced at `GET /api/provider/status`, so you find out from the
+dashboard rather than from a half-empty pipeline run.
+
+County FIPS is resolved automatically for ~30 metros; add others with
+`PROPRAVEN_COUNTY_FIPS="TX:Houston=48201;FL:Tampa=12057"`.
+
+### Other sources
+
 Set `LEAD_PROVIDER`:
 
 * **`demo`** (default) — generates realistic valid records so you can test with
@@ -475,8 +509,8 @@ blocking:
 ## Verified
 
 ```
-266 tests passing
-101 end-to-end HTTP checks passing
+291 tests passing
+103 end-to-end HTTP checks passing
 ```
 
 The suite specifically covers the channel boundary: list and probate cadences
@@ -511,6 +545,7 @@ app/
   api.py            all HTTP routes
   main.py           startup, scheduler, security headers, static UI
   providers/leads.py  demo | csv | batchdata
+  providers/propraven.py  PropRaven adapter: absentee feed, quota-aware paging
   channels/telnyx.py  SMS + voice with signature verification
   channels/email.py   Resend | SMTP
   templates_content.py  cadence + outreach copy
@@ -519,4 +554,6 @@ web/                mobile-first dashboard (vanilla JS, no build step): policy
 tests/              266 tests
 scripts/smoke.py   101 end-to-end HTTP checks
 scripts/preflight.py  go-live safety check
+scripts/propraven_probe.py  verify a PropRaven key without wasting lookups
+ci/workflow-ci.yml  CI definition (move to .github/workflows/ci.yml)
 ```
