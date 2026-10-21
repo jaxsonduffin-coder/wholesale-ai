@@ -1186,12 +1186,9 @@ def test_sms(payload: TestSmsIn, user: CurrentUser, db: Session = Depends(get_db
     to = normalize_phone(payload.to)
     if not to:
         raise HTTPException(422, "That does not look like a valid US mobile number")
-    if to == normalize_phone(settings.agent_phone):
-        pass  # sending to yourself is the intended use
-
     body = (
-        f"Wholesale AI test message. If you got this, your 10DLC number is "
-        f"delivering. Reply STOP to confirm opt-out handling works."
+        "Wholesale AI test message. If you got this, your 10DLC number is "
+        "delivering. Reply STOP to confirm opt-out handling works."
     )
     res = telnyx.send_sms(to, body)
 
@@ -1594,6 +1591,68 @@ def activity(user: CurrentUser, db: Session = Depends(get_db), limit: int = 60):
                 "lead_id": c.lead_id,
             }
         )
+    return out
+
+
+# ═══════════════════════════════════════════════════════════════
+# Lead provider status (quota, coverage, configuration)
+# ═══════════════════════════════════════════════════════════════
+@router.get("/provider/status")
+def provider_status(user: CurrentUser, db: Session = Depends(get_db)):
+    """What lead source is configured, and whether it still has quota.
+
+    PropRaven is metered per lookup, so running out mid-cycle is a real
+    failure mode. This surfaces the number so you never discover it from a
+    half-empty pipeline run.
+    """
+    from .providers.leads import get_provider
+
+    provider = get_provider()
+    out = {
+        "provider": provider.name,
+        "configured": True,
+        "quota": None,
+        "coverage_note": "",
+        "recent": {},
+    }
+
+    # Recent ingest by source, so you can see the engine actually pulling.
+    rows = db.execute(
+        select(Lead.source, func.count(Lead.id))
+        .where(Lead.created_at >= utcnow() - dt.timedelta(days=7))
+        .group_by(Lead.source)
+    ).all()
+    out["recent"] = {src or "unknown": int(n) for src, n in rows}
+
+    if provider.name == "propraven":
+        from .providers.propraven import PropRavenError
+
+        if not getattr(provider, "api_key", ""):
+            out["configured"] = False
+            out["coverage_note"] = (
+                "PROPRAVEN_API_KEY is not set. The pipeline will fail on the next "
+                "run — add the key in Railway, or set LEAD_PROVIDER=csv and upload "
+                "an export."
+            )
+            return out
+        try:
+            q = provider.usage()
+            out["quota"] = {
+                "used": q.used,
+                "limit": q.limit,
+                "remaining": q.remaining,
+                "period": q.period,
+                "low": q.low,
+            }
+            if q.low:
+                out["coverage_note"] = (
+                    f"Only {q.remaining} lookups left this period. The pipeline "
+                    f"stops pulling when this runs low."
+                )
+        except PropRavenError as e:
+            out["configured"] = False
+            out["coverage_note"] = str(e)
+
     return out
 
 
