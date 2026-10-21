@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#06060f">
+<title>Get a cash offer on your house</title>
+<meta name="description" content="Sell your house as-is, for cash, on your timeline. No repairs, no showings, no commissions.">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#06060f;--bg2:#0d0d1a;--card:#12122a;--border:#1e1e3a;
+  --accent:#00e5a0;--text:#e8eaed;--text2:#9ca3af;--muted:#6b7280;--danger:#ef4444;
+}
+body{
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  background:radial-gradient(circle at 50% -10%,#12203a,#06060f 60%);
+  color:var(--text);min-height:100dvh;-webkit-font-smoothing:antialiased;font-size:16px;
+}
+.wrap{max-width:620px;margin:0 auto;padding:28px 18px 60px}
+.brand{display:flex;align-items:center;gap:10px;margin-bottom:26px;justify-content:center}
+.brand .mark{width:36px;height:36px;border-radius:10px;
+  background:linear-gradient(135deg,var(--accent),#6366f1);
+  display:flex;align-items:center;justify-content:center;font-weight:800;color:#000}
+.brand span{font-weight:700;letter-spacing:-.3px}
+h1{font-size:1.85rem;line-height:1.18;letter-spacing:-.8px;margin-bottom:10px;text-align:center}
+h1 em{font-style:normal;color:var(--accent)}
+.sub{text-align:center;color:var(--text2);font-size:.95rem;line-height:1.55;margin-bottom:22px}
+.trust{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:26px}
+.trust span{font-size:.72rem;color:var(--text2);border:1px solid var(--border);
+  background:var(--bg2);border-radius:20px;padding:6px 12px;white-space:nowrap}
+.card{background:linear-gradient(180deg,var(--card),#101024);border:1px solid var(--border);
+  border-radius:16px;padding:20px}
+.field{margin-bottom:13px}
+.field label{display:block;font-size:.72rem;text-transform:uppercase;letter-spacing:.8px;
+  color:var(--muted);margin-bottom:6px;font-weight:700}
+.field label .opt{text-transform:none;letter-spacing:0;color:#4b5563;font-weight:500}
+input,select,textarea{width:100%;padding:13px 14px;background:var(--bg2);
+  border:1px solid var(--border);border-radius:10px;color:var(--text);outline:none;
+  font-family:inherit;font-size:16px;transition:border-color .15s}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+textarea{resize:vertical;min-height:70px}
+.row{display:flex;gap:10px}
+.row>div{flex:1}
+.consent{display:flex;gap:11px;align-items:flex-start;padding:14px;background:rgba(0,229,160,.05);
+  border:1px solid rgba(0,229,160,.22);border-radius:12px;margin:16px 0 6px;cursor:pointer}
+.consent input{width:20px;height:20px;flex:0 0 auto;margin-top:2px;accent-color:var(--accent)}
+.consent .t{font-size:.82rem;line-height:1.5;color:var(--text2)}
+.consent .t b{color:var(--text);display:block;margin-bottom:3px;font-size:.85rem}
+button{width:100%;padding:16px;border:none;border-radius:12px;
+  background:linear-gradient(135deg,var(--accent),#00b37e);color:#04140f;
+  font-weight:800;font-size:1rem;font-family:inherit;cursor:pointer;margin-top:14px;
+  transition:filter .15s,opacity .15s}
+button:hover{filter:brightness(1.08)}
+button:disabled{opacity:.55;cursor:not-allowed}
+.fine{font-size:.7rem;color:var(--muted);line-height:1.6;text-align:center;margin-top:14px}
+.fine a{color:var(--text2)}
+.msg{padding:13px 15px;border-radius:10px;font-size:.85rem;margin-bottom:14px;line-height:1.5;display:none}
+.msg.on{display:block}
+.msg.err{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.32);color:#fca5a5}
+.steps{display:grid;gap:10px;margin-top:26px}
+.step{display:flex;gap:12px;align-items:flex-start;font-size:.85rem;color:var(--text2);line-height:1.5}
+.step .n{flex:0 0 24px;height:24px;border-radius:50%;background:rgba(0,229,160,.14);
+  color:var(--accent);font-size:.72rem;font-weight:800;display:flex;align-items:center;
+  justify-content:center}
+.step b{color:var(--text);font-weight:600}
+.ok-view{display:none;text-align:center;padding:26px 8px}
+.ok-view .tick{font-size:2.6rem;margin-bottom:12px}
+.ok-view h2{font-size:1.3rem;margin-bottom:8px;letter-spacing:-.4px}
+.ok-view p{color:var(--text2);font-size:.9rem;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><div class="mark">W</div><span id="brand-name">Cash Offer</span></div>
+
+  <div id="form-view">
+    <h1>Get a <em>cash offer</em> on your house — as-is</h1>
+    <p class="sub">No repairs, no cleaning, no showings, no commissions.
+      Tell us about the property and we'll get back to you with a number.</p>
+
+    <div class="trust">
+      <span>✓ Buy as-is</span>
+      <span>✓ You pick the closing date</span>
+      <span>✓ We pay closing costs</span>
+      <span>✓ No agent fees</span>
+    </div>
+
+    <div class="msg err" id="err"></div>
+
+    <form class="card" id="f" autocomplete="on" novalidate>
+      <div class="field">
+        <label for="name">Your name</label>
+        <input id="name" name="name" required autocomplete="name" placeholder="First and last">
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="phone">Phone</label>
+          <input id="phone" name="phone" type="tel" required autocomplete="tel" placeholder="(214) 555-0143">
+        </div>
+        <div class="field">
+          <label for="email">Email <span class="opt">(optional)</span></label>
+          <input id="email" name="email" type="email" autocomplete="email" placeholder="you@email.com">
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="street">Property address</label>
+        <input id="street" name="street" required autocomplete="street-address" placeholder="1234 Elm St">
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="city">City</label>
+          <input id="city" name="city" required autocomplete="address-level2">
+        </div>
+        <div class="field">
+          <label for="state">State</label>
+          <input id="state" name="state" required maxlength="2" autocomplete="address-level1" placeholder="TX">
+        </div>
+        <div class="field">
+          <label for="zip">ZIP</label>
+          <input id="zip" name="zip" inputmode="numeric" maxlength="5" autocomplete="postal-code">
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="situation">What's the situation? <span class="opt">(optional)</span></label>
+        <select id="situation" name="situation">
+          <option value="">Select one…</option>
+          <option>Inherited the property</option>
+          <option>Behind on property taxes</option>
+          <option>Tired of being a landlord</option>
+          <option>Property is vacant</option>
+          <option>Facing foreclosure</option>
+          <option>Needs major repairs</option>
+          <option>Relocating / job move</option>
+          <option>Divorce or separation</option>
+          <option>Just want to know the value</option>
+          <option>Other</option>
+        </select>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="timeline">How soon?</label>
+          <select id="timeline" name="timeline">
+            <option value="">Select one…</option>
+            <option>As soon as possible</option>
+            <option>Within 30 days</option>
+            <option>1–3 months</option>
+            <option>3–6 months</option>
+            <option>Just exploring</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="price">Asking price <span class="opt">(optional)</span></label>
+          <input id="price" name="price" inputmode="numeric" placeholder="$">
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="notes">Anything else? <span class="opt">(optional)</span></label>
+        <textarea id="notes" name="notes" placeholder="Condition, tenants, repairs, anything we should know"></textarea>
+      </div>
+
+      <!-- Honeypot: hidden from humans, filled by bots -->
+      <div style="position:absolute;left:-9999px" aria-hidden="true">
+        <label for="company_website">Website</label>
+        <input id="company_website" name="company_website" tabindex="-1" autocomplete="off">
+      </div>
+
+      <label class="consent" for="sms_consent">
+        <input type="checkbox" id="sms_consent" name="sms_consent">
+        <span class="t">
+          <b>Text me about my offer</b>
+          By checking this box I agree to receive calls and text messages from
+          <span class="agent-co">this company</span> about my property, including
+          automated messages, at the number above. Message frequency varies.
+          Message and data rates may apply. Reply STOP to opt out at any time.
+          This is optional — you can submit without it and we'll call or email instead.
+        </span>
+      </label>
+
+      <button type="submit" id="btn">Get my cash offer →</button>
+
+      <p class="fine">
+        No obligation. No fees. We never share your information.<br>
+        <a href="#" id="privacy">Privacy &amp; contact preferences</a>
+      </p>
+    </form>
+
+    <div class="steps">
+      <div class="step"><div class="n">1</div>
+        <div><b>You tell us about the property.</b> Two minutes, no paperwork.</div></div>
+      <div class="step"><div class="n">2</div>
+        <div><b>We research and call you back.</b> Usually the same day, often within an hour.</div></div>
+      <div class="step"><div class="n">3</div>
+        <div><b>You get a written cash offer.</b> Take it or leave it — no pressure either way.</div></div>
+    </div>
+  </div>
+
+  <div class="card ok-view" id="done">
+    <div class="tick">✅</div>
+    <h2>Got it — thank you</h2>
+    <p>We're reviewing the property now and will reach out shortly.<br>
+      If it's urgent, call us directly.</p>
+  </div>
+</div>
+
+<script>
+(function () {
+  var API = '/api/public/lead';
+  var f = document.getElementById('f');
+  var btn = document.getElementById('btn');
+  var err = document.getElementById('err');
+
+  function showError(msg) {
+    err.textContent = msg;
+    err.classList.add('on');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function clearError() { err.classList.remove('on'); }
+
+  function val(id) { return (document.getElementById(id).value || '').trim(); }
+
+  f.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    clearError();
+
+    if (!val('name') || !val('phone') || !val('street') || !val('city') || !val('state')) {
+      return showError('Please fill in your name, phone number, and the property address.');
+    }
+    var digits = val('phone').replace(/\D/g, '');
+    if (digits.length < 10) {
+      return showError('That phone number looks incomplete — please double-check it.');
+    }
+    if (val('state').length !== 2) {
+      return showError('Please enter the two-letter state, e.g. TX.');
+    }
+
+    var consent = document.getElementById('sms_consent').checked;
+    var payload = {
+      name: val('name'),
+      phone: val('phone'),
+      email: val('email'),
+      street: val('street'),
+      city: val('city'),
+      state: val('state').toUpperCase(),
+      zip_code: val('zip'),
+      situation: val('situation') + (val('notes') ? ' — ' + val('notes') : ''),
+      timeline: val('timeline'),
+      asking_price: val('price'),
+      sms_consent: consent,
+      // The exact wording shown to the seller, stored as consent evidence.
+      consent_text: consent
+        ? 'I agree to receive calls and text messages about my property at the number provided. '
+          + 'Checked the "Text me about my offer" box on ' + location.href
+        : '',
+      page_url: location.pathname + location.search,
+      company_website: val('company_website')
+    };
+
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+
+    try {
+      var res = await fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        var body = null;
+        try { body = await res.json(); } catch (e2) {}
+        throw new Error((body && body.detail) || 'Something went wrong. Please call us instead.');
+      }
+      document.getElementById('form-view').style.display = 'none';
+      document.getElementById('done').style.display = 'block';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (ex) {
+      showError(ex.message || 'Something went wrong. Please try again or call us.');
+      btn.disabled = false;
+      btn.textContent = 'Get my cash offer →';
+    }
+  });
+
+  document.getElementById('privacy').addEventListener('click', function (e) {
+    e.preventDefault();
+    alert(
+      'We collect the details you submit to evaluate your property and contact you ' +
+      'about an offer.\n\nWe do not sell or share your information. If you checked the ' +
+      'text box, you can reply STOP at any time to stop messages, or ask us to delete ' +
+      'your information at any point.'
+    );
+  });
+})();
+</script>
+</body>
+</html>
