@@ -268,9 +268,36 @@ class DemoProvider(LeadProvider):
                 f"+1{rng.randint(200, 989)}{rng.randint(200, 989)}"
                 f"{rng.randint(1000, 9999)}"
             )
+            street = f"{rng.randint(100, 9899)} {rng.choice(self.STREETS)}"
+
+            # Generate 3-5 synthetic comps so scoring has real data to work with.
+            # In production these come from a comp provider; the demo generates
+            # plausible nearby sales at price-per-sqft in the right range.
+            ppsf_base = assessed / sqft if sqft else 130.0
+            num_comps = rng.randint(3, 5)
+            comps = []
+            for i in range(num_comps):
+                comp_sqft = rng.randint(max(700, sqft - 400), sqft + 400)
+                # Comps sell at market, which is 10-30% above assessed in TX.
+                comp_ppsf = ppsf_base * rng.uniform(1.05, 1.35)
+                comp_sold_price = round(comp_ppsf * comp_sqft, -2)
+                comps.append({
+                    "address": f"{rng.randint(100, 9899)} {rng.choice(self.STREETS)}",
+                    "sold_price": comp_sold_price,
+                    "sqft": comp_sqft,
+                    "sold_days_ago": rng.randint(15, 180),
+                    "distance_miles": round(rng.uniform(0.1, 1.5), 2),
+                })
+
+            # Some leads have an asking price (roughly 40%).
+            asking = None
+            if rng.random() < 0.4:
+                # Asking somewhere between assessed and market
+                asking = round(assessed * rng.uniform(0.85, 1.2), -2)
+
             rows.append(
                 {
-                    "street": f"{rng.randint(100, 9899)} {rng.choice(self.STREETS)}",
+                    "street": street,
                     "city": c,
                     "state": st,
                     "zip_code": f"{rng.randint(75000, 79999)}",
@@ -301,9 +328,12 @@ class DemoProvider(LeadProvider):
                     "tired_landlord": rng.random() < 0.12,
                     "years_owned": years_owned,
                     "equity_pct": rng.choice([15, 32, 48, 61, 78, 95]),
-                    "asking_price": None,
+                    "asking_price": asking,
                     "source": "demo",
                     "source_ref": f"demo-{rng.randint(10**6, 10**7)}",
+                    # Synthetic comps carried alongside the lead; the pipeline
+                    # stores these in the comps table so scoring can use them.
+                    "_comps": comps,
                 }
             )
         # Exercise the channel policy: roughly a fifth of demo records are

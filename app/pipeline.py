@@ -103,6 +103,26 @@ def ingest_records(
 
         lead = Lead(**clean)
         db.add(lead)
+        db.flush()  # assigns lead.id so comps can reference it
+
+        # Store any comps that arrived with the lead (demo provider, or a
+        # provider that bundles comp data alongside the property record).
+        for comp_data in (raw.get("_comps") or []):
+            import datetime as _dt
+            sold_price = float(comp_data.get("sold_price") or 0)
+            comp_sqft = int(comp_data.get("sqft") or 0)
+            sold_days_ago = int(comp_data.get("sold_days_ago") or 90)
+            db.add(Comp(
+                lead_id=lead.id,
+                address=str(comp_data.get("address") or "")[:255],
+                sold_price=sold_price,
+                sqft=comp_sqft,
+                sold_date=utcnow() - _dt.timedelta(days=sold_days_ago),
+                distance_miles=float(comp_data.get("distance_miles") or 0.5),
+                price_per_sqft=round(sold_price / comp_sqft, 2) if comp_sqft else 0.0,
+                source=source,
+            ))
+
         stats.accepted += 1
 
     db.flush()
